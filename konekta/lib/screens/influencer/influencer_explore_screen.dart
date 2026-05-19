@@ -109,7 +109,7 @@ class _InfluencerExploreScreenState extends State<InfluencerExploreScreen> {
                     fillColor: Colors.grey.shade100,
                     contentPadding: const EdgeInsets.symmetric(vertical: 0),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                       borderSide: BorderSide.none,
                     ),
                   ),
@@ -180,7 +180,7 @@ class _InfluencerExploreScreenState extends State<InfluencerExploreScreen> {
         onPressed: () => setState(() => _activeFilter = label),
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: isActive ? Colors.black : Colors.grey.shade300),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           backgroundColor: isActive ? Colors.white : Colors.transparent,
         ),
@@ -243,7 +243,7 @@ class _CampaignItem extends StatelessWidget {
             height: 50,
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: Icon(_icon, color: _iconColor, size: 28),

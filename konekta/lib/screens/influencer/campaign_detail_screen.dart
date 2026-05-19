@@ -389,7 +389,7 @@ class _JobTab extends StatelessWidget {
                       height: 26,
                       decoration: BoxDecoration(
                         gradient: AppColors.headerGradient,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Center(
                         child: Text(
@@ -454,7 +454,7 @@ class _SalaryTab extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: AppColors.headerGradient,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,7 +580,7 @@ class _StatusBadge extends StatelessWidget {
         color: isOpen
             ? Colors.white.withOpacity(0.25)
             : Colors.red.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -620,7 +620,7 @@ class _PlatformBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: isTT ? const Color(0xFF010101) : const Color(0xFFE1306C),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -680,7 +680,7 @@ class _CtaBar extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: isActive ? AppColors.headerGradient : null,
             color: isActive ? null : Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: ElevatedButton(
             onPressed: isActive && !applying ? onApply : null,
@@ -690,7 +690,7 @@ class _CtaBar extends StatelessWidget {
               disabledBackgroundColor: Colors.transparent,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(6)),
             ),
             child: applying
                 ? const SizedBox(

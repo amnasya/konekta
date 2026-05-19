@@ -222,7 +222,7 @@ class _InfluencerProfileScreenState extends State<InfluencerProfileScreen> with 
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             decoration: BoxDecoration(
                               color: AppColors.primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
                               '✨ Influencer',
@@ -482,7 +482,7 @@ class _VideoEndorseTabState extends State<_VideoEndorseTab> {
                       height: MediaQuery.of(context).size.height * 0.45,
                       decoration: BoxDecoration(
                         color: Colors.grey[900],
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(6),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.3),
@@ -516,7 +516,7 @@ class _VideoEndorseTabState extends State<_VideoEndorseTab> {
                                   ),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
-                                    borderRadius: BorderRadius.circular(30),
+                                    borderRadius: BorderRadius.circular(6),
                                     boxShadow: [
                                       BoxShadow(
                                         color: Colors.black.withValues(alpha: 0.2),
@@ -594,8 +594,8 @@ class _VideoCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.only(
-            topLeft: isFirst ? const Radius.circular(12) : Radius.zero,
-            topRight: isLast ? const Radius.circular(12) : Radius.zero,
+            topLeft: isFirst ? const Radius.circular(6) : Radius.zero,
+            topRight: isLast ? const Radius.circular(6) : Radius.zero,
             bottomLeft: isFirst ? Radius.zero : Radius.zero,
             bottomRight: isLast ? Radius.zero : Radius.zero,
           ),
@@ -628,7 +628,7 @@ class _VideoCard extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: Colors.black54,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
                             '0:30',
@@ -765,7 +765,7 @@ class _SavedBrandItem extends StatelessWidget {
             height: 50,
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: Icon(_icon, color: _iconColor, size: 28),

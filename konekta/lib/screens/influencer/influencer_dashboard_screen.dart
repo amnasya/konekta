@@ -130,17 +130,10 @@ class _DashboardView extends StatelessWidget {
                                     MaterialPageRoute(builder: (_) => const NotificationPage()),
                                   );
                                 },
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.notifications_none,
-                                    color: Colors.white,
-                                    size: 24,
-                                  ),
+                                child: const Icon(
+                                  Icons.notifications_none,
+                                  color: Colors.white,
+                                  size: 24,
                                 ),
                               ),
                             ],
@@ -210,7 +203,7 @@ class _DashboardView extends StatelessWidget {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(6),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.05),
@@ -299,7 +292,7 @@ class _DashboardView extends StatelessWidget {
                       onTap: () {
                         print("Lihat semua campaign");
                       },
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
                         child: Row(
@@ -386,7 +379,7 @@ class _ToggleSwitchState extends State<_ToggleSwitch> {
         height: 28,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: AnimatedAlign(
           duration: const Duration(milliseconds: 200),
@@ -429,7 +422,7 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
@@ -543,7 +536,7 @@ class _CampaignItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(6),
                   child: LinearProgressIndicator(
                     value: campaign.progress / 100,
                     minHeight: 5,
@@ -578,7 +571,7 @@ class _CampaignItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: const Text(
               'In progress',
@@ -656,7 +649,7 @@ class _MetricCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -786,7 +779,7 @@ class _CalendarSectionState extends State<_CalendarSection> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(6),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -887,7 +880,7 @@ class _CalendarSectionState extends State<_CalendarSection> {
             margin: const EdgeInsets.all(2),
             decoration: BoxDecoration(
               color: isToday ? _navy : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
               border: hasCampaign
                   ? Border.all(
                       color: campaignType == 'start'
@@ -944,7 +937,7 @@ class _CalendarSectionState extends State<_CalendarSection> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: type == 'start' ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
                     type == 'start' ? Icons.play_circle_outline : Icons.flag_outlined,
@@ -981,7 +974,7 @@ class _CalendarSectionState extends State<_CalendarSection> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
                 children: [
@@ -1001,7 +994,7 @@ class _CalendarSectionState extends State<_CalendarSection> {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: type == 'start' ? Colors.green : Colors.orange,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       type == 'start' ? 'START' : 'DEADLINE',
