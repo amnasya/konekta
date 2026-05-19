@@ -5,6 +5,7 @@ import '../../providers/dashboard_provider.dart';
 import '../../services/dashboard_service.dart';
 import '../../models/dashboard_model.dart';
 import '../../widgets/dashboard/skeleton_loader.dart';
+import 'profile/notification_page.dart';
 
 const _navy = Color(0xFF170C79);
 const _green = Color(0xFF1B4332);
@@ -122,7 +123,26 @@ class _DashboardView extends StatelessWidget {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              _ToggleSwitch(),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const NotificationPage()),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    Icons.notifications_none,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 15),
@@ -149,6 +169,16 @@ class _DashboardView extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── Calendar Section ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _CalendarSection(
+                  campaigns: provider.data?.campaigns ?? [],
+                ),
               ),
 
               const SizedBox(height: 20),
@@ -667,5 +697,336 @@ class _MetricCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ─── Calendar Section ─────────────────────────────────────────────────────────
+
+class _CalendarSection extends StatefulWidget {
+  final List<Campaign> campaigns;
+
+  const _CalendarSection({required this.campaigns});
+
+  @override
+  State<_CalendarSection> createState() => _CalendarSectionState();
+}
+
+class _CalendarSectionState extends State<_CalendarSection> {
+  late DateTime _selectedDate;
+  late DateTime _focusedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = DateTime.now();
+    _focusedMonth = DateTime.now();
+  }
+
+  // Get campaign dates from the list
+  List<Map<String, dynamic>> get _campaignDates {
+    // Mock data for campaign start and deadline dates
+    final now = DateTime.now();
+    return [
+      {'date': DateTime(now.year, now.month, now.day + 2), 'type': 'start', 'title': 'Kopi Nusantara'},
+      {'date': DateTime(now.year, now.month, now.day + 5), 'type': 'deadline', 'title': 'Kopi Nusantara'},
+      {'date': DateTime(now.year, now.month, now.day + 8), 'type': 'start', 'title': 'Glow Skincare'},
+      {'date': DateTime(now.year, now.month, now.day + 12), 'type': 'deadline', 'title': 'Glow Skincare'},
+      {'date': DateTime(now.year, now.month, now.day - 3), 'type': 'start', 'title': 'TechGear ID'},
+      {'date': DateTime(now.year, now.month, now.day + 1), 'type': 'deadline', 'title': 'TechGear ID'},
+    ];
+  }
+
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month && date.day == now.day;
+  }
+
+  bool _hasCampaignDate(DateTime date) {
+    return _campaignDates.any((c) =>
+        c['date'].year == date.year &&
+        c['date'].month == date.month &&
+        c['date'].day == date.day);
+  }
+
+  String _getCampaignType(DateTime date) {
+    final campaign = _campaignDates.cast<Map<String, dynamic>?>().firstWhere(
+        (c) =>
+            c!['date'].year == date.year &&
+            c['date'].month == date.month &&
+            c['date'].day == date.day,
+        orElse: () => null);
+    return campaign?['type'] ?? '';
+  }
+
+  String _getCampaignTitle(DateTime date) {
+    final campaign = _campaignDates.cast<Map<String, dynamic>?>().firstWhere(
+        (c) =>
+            c!['date'].year == date.year &&
+            c['date'].month == date.month &&
+            c['date'].day == date.day,
+        orElse: () => null);
+    return campaign?['title'] ?? '';
+  }
+
+  void _previousMonth() {
+    setState(() {
+      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1);
+    });
+  }
+
+  void _nextMonth() {
+    setState(() {
+      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with month navigation
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: _previousMonth,
+                icon: const Icon(Icons.chevron_left, color: Colors.grey),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              Text(
+                _getMonthName(_focusedMonth),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              IconButton(
+                onPressed: _nextMonth,
+                icon: const Icon(Icons.chevron_right, color: Colors.grey),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Day headers
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+                .map((day) => SizedBox(
+                      width: 36,
+                      child: Text(
+                        day,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 8),
+
+          // Calendar grid
+          _buildCalendarGrid(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendarGrid() {
+    final firstDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+    final lastDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
+    final firstWeekday = firstDayOfMonth.weekday % 7; // Sunday = 0
+
+    final daysInMonth = lastDayOfMonth.day;
+    final totalCells = ((firstWeekday + daysInMonth) / 7).ceil() * 7;
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 7,
+        childAspectRatio: 1,
+      ),
+      itemCount: totalCells,
+      itemBuilder: (context, index) {
+        final dayOffset = index - firstWeekday;
+        if (dayOffset < 0 || dayOffset >= daysInMonth) {
+          return const SizedBox.shrink();
+        }
+
+        final date = DateTime(_focusedMonth.year, _focusedMonth.month, dayOffset + 1);
+        final isToday = _isToday(date);
+        final hasCampaign = _hasCampaignDate(date);
+        final campaignType = _getCampaignType(date);
+        final campaignTitle = _getCampaignTitle(date);
+
+        return GestureDetector(
+          onTap: hasCampaign ? () => _showCampaignDetails(date, campaignType, campaignTitle) : null,
+          child: Container(
+            margin: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: isToday ? _navy : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: hasCampaign
+                  ? Border.all(
+                      color: campaignType == 'start'
+                          ? Colors.green
+                          : Colors.orange,
+                      width: 2,
+                    )
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '${dayOffset + 1}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                    color: isToday ? Colors.white : Colors.black87,
+                  ),
+                ),
+                if (hasCampaign)
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: campaignType == 'start' ? Colors.green : Colors.orange,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCampaignDetails(DateTime date, String type, String title) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: type == 'start' ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    type == 'start' ? Icons.play_circle_outline : Icons.flag_outlined,
+                    color: type == 'start' ? Colors.green : Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        type == 'start' ? 'Tanggal Mulai' : 'Deadline',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        '${date.day} ${_getMonthName(date)} ${date.year}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.campaign_outlined, color: Colors.grey),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Campaign $title',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: type == 'start' ? Colors.green : Colors.orange,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      type == 'start' ? 'START' : 'DEADLINE',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getMonthName(DateTime date) {
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    return '${months[date.month - 1]} ${date.year}';
   }
 }
