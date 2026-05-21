@@ -115,13 +115,27 @@ class _DashboardView extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Hi ${data.user.username}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                    child: const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    data.user.username,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                               GestureDetector(
                                 onTap: () {
@@ -137,14 +151,6 @@ class _DashboardView extends StatelessWidget {
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 15),
-                          const Text(
-                            'Welcome to Konekta Dashboard',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
-                            ),
                           ),
                           const SizedBox(height: 35),
                           const Text(

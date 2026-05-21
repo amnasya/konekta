@@ -1,4 +1,4 @@
-# Konekta 🤝
+# Konekta 
 
 **Platform Mobile untuk Kolaborasi Influencer & Brand**
 

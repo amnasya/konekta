@@ -3,6 +3,52 @@ import '../../theme/app_colors.dart';
 import 'setting_screen.dart';
 import 'campaign_detail_screen.dart';
 
+// ─── Custom Slide From Right Route ──────────────────────────────────────────
+
+class _SlideFromRightRoute extends PageRouteBuilder {
+  final Widget Function(BuildContext) builder;
+  final double screenWidthFactor;
+
+  _SlideFromRightRoute({
+    required this.builder,
+    this.screenWidthFactor = 0.85,
+  }) : super(
+          pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+          transitionDuration: const Duration(milliseconds: 300),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
+          opaque: false,
+        );
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final slideWidth = screenWidth * screenWidthFactor;
+
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(1, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeInOut,
+      )),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: SizedBox(
+          width: slideWidth,
+          height: double.infinity,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
 class InfluencerProfileData {
@@ -177,7 +223,10 @@ class _InfluencerProfileScreenState extends State<InfluencerProfileScreen> with 
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const SettingScreen()),
+                                _SlideFromRightRoute(
+                                  builder: (_) => const SettingScreen(),
+                                  screenWidthFactor: 0.85,
+                                ),
                               );
                             },
                             child: const Icon(
