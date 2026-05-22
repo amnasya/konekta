@@ -91,20 +91,7 @@ class _DashboardView extends StatelessWidget {
               // ── Curved navy header ──
               Stack(
                 children: [
-                  Container(height: 250, width: double.infinity, color: _navy),
-                  // Decorative circle
-                  Positioned(
-                    top: -50,
-                    right: -50,
-                    child: Container(
-                      width: 250,
-                      height: 250,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
+                  Container(height: 180, width: double.infinity, color: _navy),
                   SafeArea(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -151,15 +138,6 @@ class _DashboardView extends StatelessWidget {
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 35),
-                          const Text(
-                            'Summary',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                            ),
                           ),
                           const SizedBox(height: 20),
                           _SummaryCard(data: data),
