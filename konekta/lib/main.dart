@@ -1,26 +1,31 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'screens/splash_screen.dart';
-import 'theme/app_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'core/theme.dart';
+import 'core/api_client.dart';
+import 'core/session.dart';
+import 'core/app_scope.dart';
+import 'Opening/splash_screen.dart';
 
-void main() {
-  runApp(const KonektaApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final session = Session(prefs);
+  final api = ApiClient(session);
+  runApp(KonektaApp(session: session, api: api));
 }
 
 class KonektaApp extends StatelessWidget {
-  const KonektaApp({super.key});
+  final Session session;
+  final ApiClient api;
+  const KonektaApp({super.key, required this.session, required this.api});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return AppScope(session: session, api: api, child: MaterialApp(
       title: 'Konekta',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        textTheme: GoogleFonts.poppinsTextTheme(),
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
-        useMaterial3: true,
-      ),
-      home: const SplashScreen(),
-    );
+      theme: KonektaTheme.light,
+      home: const KonektaSplashScreen(),
+    ));
   }
 }

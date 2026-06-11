@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="konekta"
         android:name="${applicationName}"
@@ -40,6 +41,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Required by google_sign_in to detect installed Google account providers on Android 11+ -->
+        <intent>
+            <action android:name="com.google.android.gms.auth.api.identity.action.GET_ACCOUNT" />
         </intent>
     </queries>
 </manifest>
