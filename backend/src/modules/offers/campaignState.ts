@@ -156,8 +156,17 @@ export class CampaignStateMachine {
 export type ApplicationStateName =
   | 'pending' | 'approved' | 'rejected' | 'completed';
 
+// [STATE PATTERN] — State interface: setiap state punya daftar transisi
+// valid dan hook onEnter() yang opsional.
+export interface ApplicationState {
+  name: ApplicationStateName;
+  transitions: ApplicationStateName[];
+  onEnter?(ctx: CampaignStateContext): Promise<void>;
+  canTransition?(ctx: CampaignStateContext, target: ApplicationStateName): boolean;
+}
+
 // [STATE PATTERN] — Definisi semua state Application
-const ApplicationStates: Record<ApplicationStateName, CampaignState> = {
+const ApplicationStates: Record<ApplicationStateName, ApplicationState> = {
   pending: {
     name: 'pending',
     transitions: ['approved', 'rejected'],
@@ -181,7 +190,7 @@ export class ApplicationStateMachine {
   private states = ApplicationStates;
 
   getValidTransitions(current: ApplicationStateName): ApplicationStateName[] {
-    return this.states[current]?.transitions ?? [];
+    return (this.states[current]?.transitions as ApplicationStateName[]) ?? [];
   }
 
   isValidTransition(current: ApplicationStateName, target: ApplicationStateName): boolean {

@@ -1,8 +1,8 @@
 import crypto from 'crypto';
-import { pool, DbRow } from '../config/db';
+import { pool, DbRow, DbResult } from '../config/db';
 
 const TOKEN_LENGTH = 20;
-const TOKEN_EXPIRY_HOURS = parseInt(process.env.TOKEN_EXPIRY_HOURS) || 24;
+const TOKEN_EXPIRY_HOURS = parseInt(process.env.TOKEN_EXPIRY_HOURS ?? '') || 24;
 
 class BearerToken {
   static generateToken() {
@@ -12,7 +12,7 @@ class BearerToken {
   static async create(userId: number) {
     const token = this.generateToken();
     const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
-    const [result] = await pool.query(
+    const [result] = await pool.query<DbResult>(
       'INSERT INTO bearer_tokens (user_id, token, expires_at) VALUES (?, ?, ?)',
       [userId, token, expiresAt]
     );
@@ -31,7 +31,7 @@ class BearerToken {
   }
 
   static async revoke(token: string) {
-    const [result] = await pool.query('DELETE FROM bearer_tokens WHERE token = ?', [token]);
+    const [result] = await pool.query<DbResult>('DELETE FROM bearer_tokens WHERE token = ?', [token]);
     return result.affectedRows > 0;
   }
 

@@ -5,7 +5,7 @@
 // Lokasi pemakai: services/offer.service.ts, controllers/offer.controller.ts
 // ============================================================
 
-import { pool, DbResult } from '../../config/db';
+import { pool, DbRow, DbResult } from '../../config/db';
 import { ApiError } from '../../core/utils/apiError';
 
 export interface CampaignInput {
@@ -156,7 +156,7 @@ export class CampaignBuilder {
       );
     }
 
-    const [rows] = await pool.query(
+    const [rows] = await pool.query<DbRow[]>(
       `SELECT o.*, bp.brand_name, bp.logo_url, bp.industry, bp.location AS brand_location,
               ip.username AS influencer_username, u2.name AS influencer_name
        FROM offers o

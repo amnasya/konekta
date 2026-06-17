@@ -1,4 +1,4 @@
-import { pool, DbRow } from '../../../config/db';
+import { pool, DbRow, DbResult } from '../../../config/db';
 
 export interface UserRecord {
   id: number;
@@ -39,7 +39,7 @@ class User {
     provider?: string;
     providerId?: string | null;
   }) {
-    const [result] = await pool.query(
+    const [result] = await pool.query<DbResult>(
       'INSERT INTO users (email, password, name, role, provider, provider_id) VALUES (?, ?, ?, ?, ?, ?)',
       [email, password, name, role, provider, providerId]
     );

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { LoginTicket } from 'google-auth-library';
 import { client } from './googleOAuth.config';
 import User from './models/User';
 import BearerToken from './models/BearerToken';
@@ -29,9 +30,9 @@ export async function googleCallback(req: Request, res: Response) {
     const { tokens } = await client.getToken(code as string);
     client.setCredentials(tokens);
 
-    const ticket = await client.verifyIdToken({
-      idToken: tokens.id_token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+    const ticket: LoginTicket = await client.verifyIdToken({
+      idToken: tokens.id_token ?? '',
+      audience: process.env.GOOGLE_CLIENT_ID ?? '',
     });
 
     const payload = ticket.getPayload();
@@ -40,14 +41,14 @@ export async function googleCallback(req: Request, res: Response) {
     const { email, name, sub: googleId } = payload;
 
     const user = await User.findOrCreateOAuth({
-      email, name, provider: 'google', providerId: googleId,
+      email: email ?? '', name: name ?? '', provider: 'google', providerId: googleId ?? '',
     });
 
     const tokenData = await BearerToken.create(user.id);
 
     res.json({
       message: 'Google OAuth login successful',
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name ?? '' },
       token: tokenData.token,
       expires_at: tokenData.expiresAt,
     });
@@ -65,9 +66,9 @@ export async function googleExchange(req: Request, res: Response) {
     const { tokens } = await client.getToken(code);
     client.setCredentials(tokens);
 
-    const ticket = await client.verifyIdToken({
-      idToken: tokens.id_token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+    const ticket: LoginTicket = await client.verifyIdToken({
+      idToken: tokens.id_token ?? '',
+      audience: process.env.GOOGLE_CLIENT_ID ?? '',
     });
 
     const payload = ticket.getPayload();
@@ -76,14 +77,14 @@ export async function googleExchange(req: Request, res: Response) {
     const { email, name, sub: googleId } = payload;
 
     const user = await User.findOrCreateOAuth({
-      email, name, provider: 'google', providerId: googleId,
+      email: email ?? '', name: name ?? '', provider: 'google', providerId: googleId ?? '',
     });
 
     const tokenData = await BearerToken.create(user.id);
 
     res.json({
       message: 'Google OAuth login successful',
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name ?? '' },
       token: tokenData.token,
       expires_at: tokenData.expiresAt,
     });

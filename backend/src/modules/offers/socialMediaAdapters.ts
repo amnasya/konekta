@@ -113,21 +113,22 @@ export class TikTokAdapter implements ISocialMediaAdapter {
       [offerId]
     );
 
-    const [posts] = await pool.query<DbRow[]>(
+    const [rows] = await pool.query<DbRow[]>(
       `SELECT id, views, likes, shares
        FROM campaign_applicants
        WHERE offer_id = ?`,
       [offerId]
     );
+    const posts = rows as Array<{ id: number; views: number; likes: number; shares: number }>;
 
     const platform = accounts[0] as { handle: string } | undefined;
 
     return {
       platform: platform?.handle ?? 'tiktok',
-      totalViews: posts.reduce((s: number, p: { views: number }) => s + (p.views ?? 0), 0),
-      totalLikes: posts.reduce((s: number, p: { likes: number }) => s + (p.likes ?? 0), 0),
-      totalShares: posts.reduce((s: number, p: { shares: number }) => s + (p.shares ?? 0), 0),
-      posts: posts.map((p: { id: number; views: number; likes: number; shares: number }) => ({
+      totalViews: posts.reduce((s, p) => s + (p.views ?? 0), 0),
+      totalLikes: posts.reduce((s, p) => s + (p.likes ?? 0), 0),
+      totalShares: posts.reduce((s, p) => s + (p.shares ?? 0), 0),
+      posts: posts.map((p) => ({
         postId: String(p.id),
         url: '',
         views: p.views ?? 0,
@@ -170,17 +171,18 @@ export class InstagramAdapter implements ISocialMediaAdapter {
   }
 
   async fetchCampaignReport(offerId: number): Promise<PlatformReport> {
-    const [posts] = await pool.query<DbRow[]>(
+    const [rows] = await pool.query<DbRow[]>(
       `SELECT id, views, likes, shares FROM campaign_applicants WHERE offer_id = ?`,
       [offerId]
     );
+    const posts = rows as Array<{ id: number; views: number; likes: number; shares: number }>;
 
     return {
       platform: 'instagram',
-      totalViews: posts.reduce((s: number, p: { views: number }) => s + (p.views ?? 0), 0),
-      totalLikes: posts.reduce((s: number, p: { likes: number }) => s + (p.likes ?? 0), 0),
-      totalShares: posts.reduce((s: number, p: { shares: number }) => s + (p.shares ?? 0), 0),
-      posts: posts.map((p: { id: number; views: number; likes: number; shares: number }) => ({
+      totalViews: posts.reduce((s, p) => s + (p.views ?? 0), 0),
+      totalLikes: posts.reduce((s, p) => s + (p.likes ?? 0), 0),
+      totalShares: posts.reduce((s, p) => s + (p.shares ?? 0), 0),
+      posts: posts.map((p) => ({
         postId: String(p.id),
         url: '',
         views: p.views ?? 0,
@@ -227,17 +229,18 @@ export class YouTubeAdapter implements ISocialMediaAdapter {
   }
 
   async fetchCampaignReport(offerId: number): Promise<PlatformReport> {
-    const [posts] = await pool.query<DbRow[]>(
+    const [rows] = await pool.query<DbRow[]>(
       `SELECT id, views, likes, shares FROM campaign_applicants WHERE offer_id = ?`,
       [offerId]
     );
+    const posts = rows as Array<{ id: number; views: number; likes: number; shares: number }>;
 
     return {
       platform: 'youtube',
-      totalViews: posts.reduce((s: number, p: { views: number }) => s + (p.views ?? 0), 0),
-      totalLikes: posts.reduce((s: number, p: { likes: number }) => s + (p.likes ?? 0), 0),
-      totalShares: posts.reduce((s: number, p: { shares: number }) => s + (p.shares ?? 0), 0),
-      posts: posts.map((p: { id: number; views: number; likes: number; shares: number }) => ({
+      totalViews: posts.reduce((s, p) => s + (p.views ?? 0), 0),
+      totalLikes: posts.reduce((s, p) => s + (p.likes ?? 0), 0),
+      totalShares: posts.reduce((s, p) => s + (p.shares ?? 0), 0),
+      posts: posts.map((p) => ({
         postId: String(p.id),
         url: '',
         views: p.views ?? 0,
