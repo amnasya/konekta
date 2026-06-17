@@ -29,16 +29,22 @@ export const discoveryService = {
       const w = `%${q.q}%`;
       params.push(w, w, w);
     }
-    if (q.niche)     { where.push('ip.niche = ?');          params.push(q.niche); }
-    if (q.location)  { where.push('ip.location = ?');       params.push(q.location); }
-    if (q.min_followers)   { where.push('ip.followers_count >= ?'); params.push(q.min_followers); }
-    if (q.max_followers)   { where.push('ip.followers_count <= ?'); params.push(q.max_followers); }
-    if (q.min_engagement)  { where.push('ip.engagement_rate >= ?'); params.push(q.min_engagement); }
+    if (q.niche)          { where.push('ip.niche = ?');              params.push(q.niche); }
+    if (q.location)       { where.push('ip.location = ?');           params.push(q.location); }
+    if (q.min_followers)  { where.push('ip.followers_count >= ?');   params.push(q.min_followers); }
+    if (q.max_followers)  { where.push('ip.followers_count <= ?');   params.push(q.max_followers); }
+    if (q.min_engagement) { where.push('ip.engagement_rate >= ?');   params.push(q.min_engagement); }
 
     const sql = `
       SELECT u.id, u.name, u.avatar_url, u.is_verified,
              ip.username, ip.bio, ip.niche, ip.industry, ip.location,
-             ip.followers_count, ip.engagement_rate, ip.rate_card
+             ip.followers_count, ip.engagement_rate, ip.rate_card,
+             (SELECT COUNT(*) FROM campaign_applicants ca
+                JOIN offers o ON o.id = ca.offer_id
+               WHERE ca.influencer_user_id = u.id AND o.status = 'completed') AS completed_campaigns,
+             (SELECT COUNT(*) FROM campaign_applicants ca
+                JOIN offers o ON o.id = ca.offer_id
+               WHERE ca.influencer_user_id = u.id AND o.status = 'in_progress') AS active_campaigns
       FROM users u
       JOIN influencer_profiles ip ON ip.user_id = u.id
       WHERE ${where.join(' AND ')}
@@ -47,6 +53,7 @@ export const discoveryService = {
     params.push(limit, offset);
 
     const [rows] = await pool.query<DbRow[]>(sql, params);
+    // Return both { page, limit, items } and flat array for Flutter compat
     return { page, limit, items: rows };
   },
 
@@ -63,13 +70,14 @@ export const discoveryService = {
       const w = `%${q.q}%`;
       params.push(w, w, w);
     }
-    if (q.industry)   { where.push('bp.industry = ?');  params.push(q.industry); }
-    if (q.location)   { where.push('bp.location = ?');  params.push(q.location); }
-    if (q.category)   { where.push('bp.industry = ?');  params.push(q.category); }
+    if (q.industry) { where.push('bp.industry = ?'); params.push(q.industry); }
+    if (q.location) { where.push('bp.location = ?'); params.push(q.location); }
+    if (q.category) { where.push('bp.industry = ?'); params.push(q.category); }
 
     const sql = `
       SELECT u.id, u.name, u.avatar_url,
-             bp.brand_name, bp.description, bp.industry, bp.website, bp.location, bp.logo_url
+             bp.brand_name, bp.description, bp.industry, bp.website, bp.location, bp.logo_url,
+             (SELECT COUNT(*) FROM offers o WHERE o.brand_user_id = u.id AND o.status = 'open') AS open_campaigns
       FROM users u
       JOIN brand_profiles bp ON bp.user_id = u.id
       WHERE ${where.join(' AND ')}

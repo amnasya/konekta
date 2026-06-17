@@ -5,4 +5,6 @@ import { requireAuth } from '../middlewares/auth';
 const r = Router();
 r.use(requireAuth);
 r.get('/overview', dashboardController.overview);
+r.get('/influencer', dashboardController.influencer);
+r.get('/brand', dashboardController.brand);
 export default r;
