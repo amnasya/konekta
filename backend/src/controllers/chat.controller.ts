@@ -4,49 +4,66 @@ import { chatService } from '../services/chat.service';
 import { ok, created } from '../utils/response';
 import { ApiError } from '../utils/apiError';
 
-const startSchema = z.object({
-  other_user_id: z.number().int().positive(),
-  offer_id: z.number().int().positive().optional(),
+const ensureSchema = z.object({
+  brand_user_id: z.number().int(),
+  influencer_user_id: z.number().int(),
 });
 
-const messageSchema = z.object({
-  message_text: z.string().min(1).max(2000),
-  attachment_url: z.string().max(500).optional(),
+// Flutter sends { other_user_id }
+const createSchema = z.object({
+  other_user_id: z.number().int(),
 });
+
+const sendSchema = z.object({ body: z.string().min(1).max(2000) });
 
 export const chatController = {
   async list(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new ApiError(401, 'Unauthenticated');
       const data = await chatService.listConversations(req.user.id);
-      return ok(res, { items: data });
+      return ok(res, data);
     } catch (e) { next(e); }
   },
-  async start(req: Request, res: Response, next: NextFunction) {
+
+  // POST /conversations — Flutter sends { other_user_id }
+  async create(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new ApiError(401, 'Unauthenticated');
-      const body = startSchema.parse(req.body);
-      const conv = await chatService.startConversation(req.user.id, body.other_user_id, body.offer_id);
-      return ok(res, conv);
+      const { other_user_id } = createSchema.parse(req.body);
+      const r = await chatService.ensureConversationByOtherUser(req.user.id, other_user_id);
+      return ok(res, r);
     } catch (e) { next(e); }
   },
+
+  // POST /conversations/ensure — legacy: { brand_user_id, influencer_user_id }
+  async ensure(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) throw new ApiError(401, 'Unauthenticated');
+      const data = ensureSchema.parse(req.body);
+      if (data.brand_user_id !== req.user.id && data.influencer_user_id !== req.user.id) {
+        throw new ApiError(403, 'You can only start chats you are part of');
+      }
+      const r = await chatService.ensureConversation(data.brand_user_id, data.influencer_user_id);
+      return ok(res, r);
+    } catch (e) { next(e); }
+  },
+
   async messages(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new ApiError(401, 'Unauthenticated');
       const id = Number(req.params.id);
-      if (!Number.isFinite(id)) throw new ApiError(400, 'Invalid id');
-      const data = await chatService.getMessages(id, req.user.id);
-      return ok(res, { items: data });
+      const data = await chatService.listMessages(id, req.user.id);
+      return ok(res, data);
     } catch (e) { next(e); }
   },
+
   async send(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new ApiError(401, 'Unauthenticated');
       const id = Number(req.params.id);
-      if (!Number.isFinite(id)) throw new ApiError(400, 'Invalid id');
-      const body = messageSchema.parse(req.body);
-      const data = await chatService.sendMessage(id, req.user.id, body.message_text, body.attachment_url);
-      return created(res, data, 'Message sent');
+      const { body } = sendSchema.parse(req.body);
+      const m = await chatService.sendMessage(id, req.user.id, body);
+      return created(res, m, 'Message sent');
     } catch (e) { next(e); }
   },
 };

@@ -1,9 +1,8 @@
 import { OAuth2Client } from 'google-auth-library';
+import { env } from './env';
 
-const clientId = process.env.GOOGLE_CLIENT_ID;
-const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:4000/auth/google/callback';
+export const clientId = env.googleClientId || process.env.GOOGLE_CLIENT_ID;
+export const clientSecret = env.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET;
+export const redirectUri = env.googleRedirectUri;
 
-const client = new OAuth2Client(clientId, clientSecret, redirectUri);
-
-export { client, clientId, clientSecret, redirectUri };
+export const client = new OAuth2Client(clientId, clientSecret, redirectUri);
