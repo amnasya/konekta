@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
-import 'campaign_room_screen.dart';
+import '../../core/app_scope.dart';
+import '../../core/api_client.dart';
+import '../../data/repositories/campaign_repository.dart';
+import '../../data/models/campaign.dart';
+import 'brand_active_room_screen.dart';
 
 class NewCampaignScreen extends StatefulWidget {
   const NewCampaignScreen({super.key});
@@ -19,65 +23,175 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
   final List<Map<String, dynamic>> _targetMetrics = [];
   final List<Map<String, dynamic>> _requirementMetrics = [];
 
+  static const List<Map<String, dynamic>> _targetMetricOptions = [
+    {'icon': Icons.thumb_up_alt_outlined, 'label': 'Likes'},
+    {'icon': Icons.mode_comment_outlined, 'label': 'Comments'},
+    {'icon': Icons.share_outlined, 'label': 'Share'},
+    {'icon': Icons.visibility_outlined, 'label': 'Views'},
+  ];
+
+  static const List<Map<String, dynamic>> _requirementMetricOptions = [
+    {'icon': Icons.people_outline, 'label': 'Followers'},
+    {'icon': Icons.workspace_premium_outlined, 'label': 'Total Completed Campaign'},
+  ];
+
   void _addTargetMetric() {
+    int selected = 0;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Add Target Metric'),
-        content: const Text('Select a metric and set a target value.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: KonektaColors.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocalState) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: const Text('Add Target Metric'),
+            content: SizedBox(
+              width: 320,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Select a metric and set a target value.'),
+                  const SizedBox(height: 12),
+                  ..._targetMetricOptions.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final opt = entry.value;
+                    final isSelected = selected == i;
+                    return InkWell(
+                      onTap: () => setLocalState(() => selected = i),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                        child: Row(
+                          children: [
+                            Icon(opt['icon'] as IconData, size: 20, color: isSelected ? KonektaColors.primary : Colors.grey),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                opt['label'] as String,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isSelected ? KonektaColors.primary : Colors.black,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                              size: 20,
+                              color: isSelected ? KonektaColors.primary : Colors.grey,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              setState(() {
-                _targetMetrics.add({
-                  'icon': Icons.thumb_up_alt_outlined,
-                  'label': 'New Metric',
-                  'value': '',
-                });
-              });
-            },
-            child: const Text('Add'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: KonektaColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                ),
+                onPressed: () {
+                  final picked = _targetMetricOptions[selected];
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _targetMetrics.add({
+                      'icon': picked['icon'],
+                      'label': picked['label'],
+                      'value': '',
+                    });
+                  });
+                },
+                child: const Text('Add'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   void _addRequirementMetric() {
+    int selected = 0;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Add Requirement Metric'),
-        content: const Text('Select a requirement and set a value.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: KonektaColors.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocalState) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: const Text('Add Requirement Metric'),
+            content: SizedBox(
+              width: 320,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Select a requirement and set a value.'),
+                  const SizedBox(height: 12),
+                  ..._requirementMetricOptions.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final opt = entry.value;
+                    final isSelected = selected == i;
+                    return InkWell(
+                      onTap: () => setLocalState(() => selected = i),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                        child: Row(
+                          children: [
+                            Icon(opt['icon'] as IconData, size: 20, color: isSelected ? KonektaColors.primary : Colors.grey),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                opt['label'] as String,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isSelected ? KonektaColors.primary : Colors.black,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                              size: 20,
+                              color: isSelected ? KonektaColors.primary : Colors.grey,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              setState(() {
-                _requirementMetrics.add({
-                  'icon': Icons.people_outline,
-                  'label': 'New Requirement',
-                  'value': '',
-                });
-              });
-            },
-            child: const Text('Add'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: KonektaColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                ),
+                onPressed: () {
+                  final picked = _requirementMetricOptions[selected];
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _requirementMetrics.add({
+                      'icon': picked['icon'],
+                      'label': picked['label'],
+                      'value': '',
+                    });
+                  });
+                },
+                child: const Text('Add'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -102,10 +216,47 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
     }
   }
 
-  void _submit() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const CampaignRoomScreen()),
-    );
+  bool _saving = false;
+
+  void _submit() async {
+    final name = _nameController.text.trim();
+    final brief = _briefController.text.trim();
+    final rewardText = _rewardController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+    final budget = double.tryParse(rewardText) ?? 0;
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Campaign name is required')));
+      return;
+    }
+    if (budget <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reward / budget is required')));
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final scope = AppScope.of(context);
+      final repo = CampaignRepository(scope.api);
+      final campaign = await repo.create({
+        'title': name,
+        if (brief.isNotEmpty) 'brief': brief,
+        'budget': budget,
+        if (_deadlineController.text.isNotEmpty) 'deadline': _deadlineController.text,
+        'is_public': isPublic,
+      });
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => BrandActiveRoomScreen(campaign: campaign)),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${e.message}')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -178,10 +329,20 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
                           decoration: const InputDecoration(
                             hintText: 'e.g., Summer Launch 2024',
                             contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            fillColor: Color(0xFFEBF2F9),
+                            filled: true,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(Radius.circular(12)),
+                              borderSide: BorderSide(color: Color(0xFFD2E6FF), width: 1),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(Radius.circular(12)),
+                              borderSide: BorderSide(color: Color(0xFF408CFF), width: 1.2),
+                            ),
                           ),
                           style: const TextStyle(fontSize: 14),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 10),
                         _buildFieldLabel('Deadline'),
                         TextField(
                           controller: _deadlineController,
@@ -191,6 +352,16 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
                             hintText: 'mm/dd/yyyy',
                             prefixIcon: const Icon(Icons.calendar_today_outlined, size: 18, color: Colors.grey),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            fillColor: const Color(0xFFEBF2F9),
+                            filled: true,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFD2E6FF), width: 1),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFF408CFF), width: 1.2),
+                            ),
                           ),
                           style: TextStyle(fontSize: 14, color: _deadlineController.text.isEmpty ? Colors.grey : null),
                         ),
@@ -216,8 +387,8 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
                         const SizedBox(height: 14),
                         _buildRowInputField(
                           label: 'Reward Nominal per Creator',
-                          hintText: '123.000',
-                          prefixText: 'Rp ',
+                          hintText: ' Rp   123.000',
+                          prefixText: '',
                           controller: _rewardController,
                         ),
                       ],
@@ -241,6 +412,16 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
                           decoration: const InputDecoration(
                             hintText: 'Describe the aesthetic, key messaging, and any required product shots...',
                             contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            fillColor: Color(0xFFEBF2F9),
+                            filled: true,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(Radius.circular(12)),
+                              borderSide: BorderSide(color: Color(0xFFD2E6FF), width: 1),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(Radius.circular(12)),
+                              borderSide: BorderSide(color: Color(0xFF408CFF), width: 1.2),
+                            ),
                           ),
                           style: const TextStyle(fontSize: 14),
                         ),
@@ -258,19 +439,15 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
                     subtitle: 'Set specific numeric goals for your selected KPIs per influencer.',
                     child: Column(
                       children: [
-                        if (_targetMetrics.isEmpty)
-                          _buildMetricRow(icon: Icons.thumb_up_alt_outlined, label: 'Likes'),
-                        if (_targetMetrics.isNotEmpty) ...[
-                          ..._targetMetrics.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final metric = entry.value;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _buildMetricRowWithRemove(icon: metric['icon'] as IconData, label: metric['label'] as String, value: metric['value'] as String, onRemove: () => _removeTargetMetric(index)),
-                            );
-                          }),
-                        ],
-                        if (_targetMetrics.isNotEmpty) const SizedBox(height: 10),
+                        ..._targetMetrics.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final metric = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _buildMetricRowWithRemove(icon: metric['icon'] as IconData, label: metric['label'] as String, value: metric['value'] as String, onRemove: () => _removeTargetMetric(index)),
+                          );
+                        }),
+                        if (_targetMetrics.isNotEmpty) const SizedBox(height: 2),
                         _buildDashedButton(label: 'Add Target Metrics', onTap: _addTargetMetric),
                       ],
                     ),
@@ -286,19 +463,15 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
                     subtitle: 'Set specific numeric Requirement for the influencer that applies.',
                     child: Column(
                       children: [
-                        if (_requirementMetrics.isEmpty)
-                          _buildMetricRow(icon: Icons.people_outline, label: 'Followers'),
-                        if (_requirementMetrics.isNotEmpty) ...[
-                          ..._requirementMetrics.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final metric = entry.value;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _buildMetricRowWithRemove(icon: metric['icon'] as IconData, label: metric['label'] as String, value: metric['value'] as String, onRemove: () => _removeRequirementMetric(index)),
-                            );
-                          }),
-                        ],
-                        if (_requirementMetrics.isNotEmpty) const SizedBox(height: 12),
+                        ..._requirementMetrics.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final metric = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _buildMetricRowWithRemove(icon: metric['icon'] as IconData, label: metric['label'] as String, value: metric['value'] as String, onRemove: () => _removeRequirementMetric(index)),
+                          );
+                        }),
+                        if (_requirementMetrics.isNotEmpty) const SizedBox(height: 2),
                         _buildDashedButton(label: 'Add requirement metrics', onTap: _addRequirementMetric),
                       ],
                     ),
@@ -379,16 +552,18 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
                   gradient: KonektaGradients.pillBlue,
                 ),
                 child: ElevatedButton.icon(
-                  onPressed: _submit,
+                  onPressed: _saving ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                   ),
-                  icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
-                  label: const Text(
-                    'Create Room',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                  icon: _saving
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
+                  label: Text(
+                    _saving ? 'Creating...' : 'Create Room',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ),
               ),
@@ -519,8 +694,10 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
               style: TextStyle(fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Enter goal',
-                hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
+                hintStyle: TextStyle(color: Colors.white, fontSize: 12),
                 border: InputBorder.none,
+                filled: true,
+                fillColor: Colors.white,
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -566,6 +743,8 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
                 hintText: value.isEmpty ? 'Enter goal' : null,
                 hintStyle: const TextStyle(color: Colors.grey, fontSize: 12),
                 border: InputBorder.none,
+                filled: true,
+                fillColor: Colors.white,
                 contentPadding: EdgeInsets.zero,
               ),
             ),

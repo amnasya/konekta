@@ -21,21 +21,34 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _googleLoading = false;
 
   void _login() async {
+    final email = _email.text.trim();
+    final password = _password.text;
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill in all fields')));
+      return;
+    }
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password must be at least 6 characters')));
+      return;
+    }
     final scope = AppScope.of(context);
     final api = scope.api;
     final session = scope.session;
     setState(() => _loading = true);
     try {
-      final res = await api.post('/auth/login', {'email': _email.text.trim(), 'password': _password.text}, auth: false);
+      final res = await api.post('/auth/login', {'email': email, 'password': password}, auth: false);
+      final resMap = Map<String, dynamic>.from(res as Map);
+      final userMap = Map<String, dynamic>.from(resMap['user'] as Map);
       await session.save(
-        token: res['token'] ?? '',
-        role: res['user']?['role'] ?? 'influencer',
-        userId: res['user']?['id'] ?? 0,
-        name: res['user']?['name'] ?? '',
+        token: (resMap['token'] ?? '') as String,
+        role: (userMap['role'] ?? 'influencer') as String,
+        userId: (userMap['id'] is num) ? (userMap['id'] as num).toInt() : int.tryParse('${userMap['id']}') ?? 0,
+        name: (userMap['name'] ?? '') as String,
       );
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const MainScreen()), (_) => false);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login failed: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);

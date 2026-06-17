@@ -29,15 +29,18 @@ class _RoleSelectScreenState extends State<RoleSelectScreen> {
         'password': widget.password,
         'role': _role,
       }, auth: false);
+      final resMap = Map<String, dynamic>.from(res as Map);
+      final userMap = Map<String, dynamic>.from(resMap['user'] as Map);
       await session.save(
-        token: res['token'] ?? '',
-        role: res['user']?['role'] ?? _role,
-        userId: res['user']?['id'] ?? 0,
-        name: res['user']?['name'] ?? widget.name,
+        token: (resMap['token'] ?? '') as String,
+        role: (userMap['role'] ?? _role) as String,
+        userId: (userMap['id'] is num) ? (userMap['id'] as num).toInt() : int.tryParse('${userMap['id']}') ?? 0,
+        name: (userMap['name'] ?? widget.name) as String,
       );
       if (!mounted) return;
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => CompleteProfileScreen(role: _role)));
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sign up failed: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);

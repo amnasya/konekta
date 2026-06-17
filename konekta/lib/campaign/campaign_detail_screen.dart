@@ -3,9 +3,11 @@ import 'package:intl/intl.dart';
 import '../core/theme.dart';
 import '../core/format.dart';
 import '../chat/chat_room_screen.dart';
+import '../data/models/campaign.dart';
 
 class CampaignDetailScreen extends StatelessWidget {
-  const CampaignDetailScreen({super.key});
+  final Campaign? campaign;
+  const CampaignDetailScreen({super.key, this.campaign});
 
   @override
   Widget build(BuildContext context) {

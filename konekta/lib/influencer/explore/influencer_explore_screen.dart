@@ -1,149 +1,374 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../../core/app_scope.dart';
 import '../../core/theme.dart';
+import '../../core/format.dart';
+import '../../data/models/campaign.dart';
+import '../../data/repositories/campaign_repository.dart';
 import '../../campaign/campaign_detail_screen.dart';
+import '../../notification/notifications_screen.dart';
+import '../subscription/influencer_subscription_screen.dart';
 
-class InfluencerExploreScreen extends StatelessWidget {
+class InfluencerExploreScreen extends StatefulWidget {
   const InfluencerExploreScreen({super.key});
 
   @override
+  State<InfluencerExploreScreen> createState() => _InfluencerExploreScreenState();
+}
+
+class _InfluencerExploreScreenState extends State<InfluencerExploreScreen> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final TextEditingController _roomCtrl = TextEditingController();
+
+  bool _loading = true;
+  String? _error;
+  List<Campaign> _campaigns = const [];
+  String _search = '';
+  AppScope? _scope;
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scope = AppScope.of(context);
+    if (!_initialized) {
+      _initialized = true;
+      _load();
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _roomCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final scope = _scope;
+    if (scope == null) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await scope.api.get(
+        '/offers',
+        query: {'role': 'influencer', 'status': 'open', 'page': 1, 'limit': 50},
+        auth: false,
+      );
+      final list = (data as List)
+          .whereType<Map>()
+          .map((e) => Campaign.fromJson(e.cast<String, dynamic>()))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _campaigns = list;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  List<Campaign> get _filtered {
+    if (_search.isEmpty) return _campaigns;
+    final q = _search.toLowerCase();
+    return _campaigns.where((c) {
+      return c.title.toLowerCase().contains(q) ||
+          (c.brandName ?? '').toLowerCase().contains(q);
+    }).toList();
+  }
+
+  void _joinRoom() {
+    final code = _roomCtrl.text.trim();
+    if (code.isEmpty) return;
+    // TODO: navigate to campaign room by room code
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Joining room: $code')),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
     return Scaffold(
       backgroundColor: const Color(0xFFEDF4FC),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 40),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ClipPath(
-                clipper: HeaderCurvedClipper(),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF2FA2EE), Color(0xFF3B7CE5)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: CustomScrollView(
+          slivers: [
+            // Header
+            SliverToBoxAdapter(
+              child: Container(
+                padding: EdgeInsets.fromLTRB(16, topPad + 16, 16, 24),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF2FA2EE), Color(0xFF3B7CE5)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.hub_outlined, color: Colors.white, size: 22),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Konekta',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () {},
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 24),
-                      ),
-                    ],
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(28),
+                    bottomRight: Radius.circular(28),
                   ),
                 ),
-              ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: _ProBannerCard(),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'PRIVATE ACCESS',
-                  style: TextStyle(
-                    color: KonektaColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: _RoomCodeField(),
-              ),
-              const SizedBox(height: 28),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    const Icon(Icons.hub_outlined, color: Colors.white, size: 22),
+                    const SizedBox(width: 8),
                     const Text(
-                      'FEATURED PUBLIC CAMPAIGNS',
-                      style: TextStyle(
-                        color: KonektaColors.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
+                      'Konekta',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 24),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ProBannerCard(
+                      onUpgrade: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const InfluencerSubscriptionScreen()),
                       ),
                     ),
-                    GestureDetector(
-                      onTap: () {},
-                      child: Row(
-                        children: const [
-                          Text(
-                            'VIEW ALL',
+                    const SizedBox(height: 16),
+
+                    // Private room join
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'PRIVATE ACCESS',
                             style: TextStyle(
+                              color: KonektaColors.textMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _roomCtrl,
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter Room Code',
+                                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                                    filled: true,
+                                    fillColor: const Color(0xFFF3F7FF),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              GestureDetector(
+                                onTap: _joinRoom,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF4A9FFF), Color(0xFF3581E1)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Text(
+                                    'Join',
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Search bar
+                    Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.search_rounded, color: Colors.grey.shade400, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchCtrl,
+                              onChanged: (v) => setState(() => _search = v.trim()),
+                              decoration: InputDecoration(
+                                hintText: 'Search campaigns or brands',
+                                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ),
+                          if (_search.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                _searchCtrl.clear();
+                                setState(() => _search = '');
+                              },
+                              child: Icon(Icons.close_rounded, color: Colors.grey.shade400, size: 18),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Section label
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'FEATURED PUBLIC CAMPAIGNS',
+                          style: TextStyle(
+                            color: KonektaColors.textMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        if (!_loading)
+                          Text(
+                            '${_filtered.length} OPEN',
+                            style: const TextStyle(
                               color: KonektaColors.primary,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          SizedBox(width: 2),
-                          Icon(Icons.arrow_forward, size: 10, color: KonektaColors.primary),
-                        ],
-                      ),
+                      ],
                     ),
+                    const SizedBox(height: 14),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _campaigns.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 14),
-                itemBuilder: (context, index) {
-                  final campaign = _campaigns[index];
-                  return _buildPublicCampaignCard(context, campaign);
-                },
+            ),
+
+            // Campaign list
+            if (_loading)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFF2FA2EE))),
+                ),
+              )
+            else if (_error != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _ErrorBlock(message: _error!, onRetry: _load),
+                ),
+              )
+            else if (_filtered.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _EmptyBlock(query: _search),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _CampaignCard(
+                        campaign: _filtered[i],
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CampaignDetailScreen(campaign: _filtered[i]),
+                          ),
+                        ),
+                      ),
+                    ),
+                    childCount: _filtered.length,
+                  ),
+                ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildPublicCampaignCard(BuildContext context, _CampaignModel item) {
+class _CampaignCard extends StatelessWidget {
+  final Campaign campaign;
+  final VoidCallback onTap;
+  const _CampaignCard({required this.campaign, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final rupiah = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final c = campaign;
+    final brand = c.brandName ?? 'Brand';
+    final daysLeft = c.daysLeft;
+    final daysText = daysLeft == null
+        ? '— Days Left'
+        : daysLeft > 0
+            ? '$daysLeft Days Left'
+            : daysLeft == 0
+                ? 'Due today'
+                : 'Closed';
+    final budget = c.budget != null ? rupiah.format(c.budget) : '—';
+    final applicants = c.applicantsCount ?? 0;
+
     return InkWell(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const CampaignDetailScreen()),
-      ),
-      borderRadius: BorderRadius.circular(24),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
           ],
         ),
         child: Column(
@@ -152,12 +377,18 @@ class InfluencerExploreScreen extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Brand avatar
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 46,
+                  height: 46,
                   decoration: BoxDecoration(
-                    color: item.avatarColor,
-                    borderRadius: BorderRadius.circular(14),
+                    color: _brandColor(brand),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    brand.isEmpty ? 'B' : brand[0].toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -165,28 +396,22 @@ class InfluencerExploreScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 2),
                       Text(
-                        item.title,
-                        style: const TextStyle(
-                          color: KonektaColors.textDark,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        c.title,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: KonektaColors.textDark),
                       ),
+                      const SizedBox(height: 2),
+                      Text(brand, style: const TextStyle(fontSize: 12, color: KonektaColors.textSecondary, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           Icon(Icons.access_time, size: 12, color: Colors.grey.shade400),
                           const SizedBox(width: 4),
-                          Text(
-                            item.daysLeftText,
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                          Text(daysText, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                          const SizedBox(width: 12),
+                          Icon(Icons.people_outline_rounded, size: 12, color: Colors.grey.shade400),
+                          const SizedBox(width: 4),
+                          Text('$applicants applicants', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
                         ],
                       ),
                     ],
@@ -195,13 +420,13 @@ class InfluencerExploreScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: item.isOpen ? const Color(0xFFD6F8E8) : const Color(0xFFC8CED4),
+                    color: c.isOpen ? const Color(0xFFD6F8E8) : const Color(0xFFC8CED4),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    item.isOpen ? 'OPEN' : 'CLOSED',
+                    c.isOpen ? 'OPEN' : c.status.toUpperCase(),
                     style: TextStyle(
-                      color: item.isOpen ? const Color(0xFF00C853) : const Color(0xFF6B7280),
+                      color: c.isOpen ? const Color(0xFF00C853) : const Color(0xFF6B7280),
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                     ),
@@ -209,36 +434,28 @@ class InfluencerExploreScreen extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            if (c.description != null && c.description!.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                c.description!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.4),
+              ),
+            ],
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      item.priceRange,
-                      style: const TextStyle(
-                        color: Color(0xFF3AA1FF),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.goalDetail,
-                      style: TextStyle(
-                        color: Colors.grey.shade400,
-                        fontSize: 10,
-                      ),
-                    ),
+                    Text('BUDGET', style: TextStyle(color: Colors.grey.shade400, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                    const SizedBox(height: 2),
+                    Text(budget, style: const TextStyle(color: Color(0xFF3AA1FF), fontSize: 15, fontWeight: FontWeight.w800)),
                   ],
                 ),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 16,
-                  color: Colors.grey.shade400,
-                ),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: KonektaColors.textMuted),
               ],
             ),
           ],
@@ -246,46 +463,23 @@ class InfluencerExploreScreen extends StatelessWidget {
       ),
     );
   }
+
+  Color _brandColor(String name) {
+    final colors = [
+      const Color(0xFF6A534E),
+      const Color(0xFF4A7DFF),
+      const Color(0xFF2FA2EE),
+      const Color(0xFF1FB76A),
+      const Color(0xFFF6A623),
+      const Color(0xFFE5484D),
+    ];
+    return colors[name.hashCode.abs() % colors.length];
+  }
 }
 
-const List<_CampaignModel> _campaigns = [
-  _CampaignModel(
-    title: 'Kopi Susu',
-    daysLeftText: '14 Days Left',
-    priceRange: 'Rp 160k - 240k',
-    goalDetail: 'Goal: 50,000 views and 5k engagement',
-    avatarColor: Color(0xFF6A534E),
-    isOpen: true,
-  ),
-  _CampaignModel(
-    title: 'Kebab',
-    daysLeftText: '5 Days Left',
-    priceRange: 'Rp 160k - 240k',
-    goalDetail: 'Goal: 50,000 views and 5k engagement',
-    avatarColor: Color(0xFFD4BCE0),
-    isOpen: true,
-  ),
-  _CampaignModel(
-    title: 'Calf',
-    daysLeftText: '20 Days Left',
-    priceRange: 'Rp 300k - 370k',
-    goalDetail: 'Goal: 50,000 views and 5k engagement',
-    avatarColor: Color(0xFF007FFF),
-    isOpen: true,
-  ),
-  _CampaignModel(
-    title: 'AAA Skincare',
-    daysLeftText: '- Days Left',
-    priceRange: 'Rp 300k - 370k',
-    goalDetail: 'Goal: 50,000 views and 5k engagement',
-    avatarColor: Color(0xFFFFB82E),
-    isOpen: false,
-  ),
-];
-
 class _ProBannerCard extends StatelessWidget {
-  const _ProBannerCard();
-
+  final VoidCallback onUpgrade;
+  const _ProBannerCard({required this.onUpgrade});
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -314,50 +508,32 @@ class _ProBannerCard extends StatelessWidget {
                   ),
                   child: const Text(
                     'PREMIUM TIER',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Konekta Pro',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                const Text('Konekta Pro', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Text(
                   'Stand out to brands & unlock\nunlimited campaigns.',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 11,
-                    height: 1.3,
-                  ),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 11, height: 1.3),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 10),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF408CFF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+          SizedBox(
+            width: 90,
+            child: ElevatedButton(
+              onPressed: onUpgrade,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF408CFF),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                elevation: 0,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              elevation: 0,
-            ),
-            child: const Text(
-              'Upgrade',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              child: const Text('Upgrade', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
             ),
           ),
         ],
@@ -366,100 +542,66 @@ class _ProBannerCard extends StatelessWidget {
   }
 }
 
-class _RoomCodeField extends StatelessWidget {
-  const _RoomCodeField();
-
+class _EmptyBlock extends StatelessWidget {
+  final String query;
+  const _EmptyBlock({required this.query});
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Icon(Icons.key_outlined, color: Colors.grey.shade400, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Enter Room Code',
-                      hintStyle: TextStyle(color: Colors.grey.shade300, fontSize: 14),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      child: Column(
+        children: [
+          Icon(Icons.search_off_rounded, color: Colors.grey.shade400, size: 40),
+          const SizedBox(height: 12),
+          Text(
+            query.isEmpty ? 'No open campaigns right now' : 'No campaigns match "$query"',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF26264A)),
           ),
-        ),
-        const SizedBox(width: 12),
-        Container(
-          height: 50,
-          width: 76,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF4A9FFF), Color(0xFF3581E1)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(16),
+          const SizedBox(height: 4),
+          Text(
+            'Check back later or broaden your search.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
-          child: TextButton(
-            onPressed: () {},
-            child: const Text(
-              'Join',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class HeaderCurvedClipper extends CustomClipper<Path> {
+class _ErrorBlock extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorBlock({required this.message, required this.onRetry});
   @override
-  Path getClip(Size size) {
-    var path = Path();
-    path.lineTo(0, size.height - 20);
-    var controlPoint = Offset(size.width / 2, size.height + 10);
-    var endPoint = Offset(size.width, size.height - 20);
-    path.quadraticBezierTo(controlPoint.dx, controlPoint.dy, endPoint.dx, endPoint.dy);
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      child: Column(
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 40, color: Color(0xFFB0B8C4)),
+          const SizedBox(height: 10),
+          const Text('Could not load campaigns', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Color(0xFF7E8CA0))),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2FA2EE),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
-
-  @override
-  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
-}
-
-class _CampaignModel {
-  final String title;
-  final String daysLeftText;
-  final String priceRange;
-  final String goalDetail;
-  final Color avatarColor;
-  final bool isOpen;
-
-  const _CampaignModel({
-    required this.title,
-    required this.daysLeftText,
-    required this.priceRange,
-    required this.goalDetail,
-    required this.avatarColor,
-    required this.isOpen,
-  });
 }

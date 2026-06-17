@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'core/theme.dart';
 import 'core/app_scope.dart';
 import 'brand/dashboard/brand_dashboard_screen.dart';
-import 'brand/explore/brand_explore_screen.dart';
 import 'brand/analytics/brand_analytics_screen.dart';
 import 'brand/profile/brand_profile_screen.dart';
+import 'brand/explore/brand_explore_screen.dart';
 import 'influencer/dashboard/influencer_dashboard_screen.dart';
-import 'influencer/explore/influencer_explore_screen.dart';
 import 'influencer/analytics/influencer_analytics_screen.dart';
 import 'influencer/profile/influencer_profile_screen.dart';
+import 'influencer/explore/influencer_explore_screen.dart';
 import 'chat/chat_list_screen.dart';
 
 class MainScreen extends StatefulWidget {

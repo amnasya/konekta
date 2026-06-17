@@ -19,6 +19,21 @@ class KonektaColors {
   static const danger = Color(0xFFE5484D);
   static const chatBlue = Color(0xFF7FB8FF);
 
+  // Extra colors used by explore/landing screens
+  static const navActive = Color(0xFF1A73E8);
+  static const navInactive = Color(0xFF9AA0A6);
+  static const softRed = Color(0xFFE5484D);
+  static const gradientStart = Color(0xFF2FA2EE);
+  static const gradientEnd = Color(0xFF3B7CE5);
+  static const bannerGradientStart = Color(0xFF2FA2EE);
+  static const bannerGradientEnd = Color(0xFF408CFF);
+  static const cardGradientStart = Color(0xFF4A9FFF);
+  static const cardGradientEnd = Color(0xFF3581E1);
+  static const proPillBg = Color(0x3FFF80FF); // rgba(255,128,255,0.25)
+  static const proPillText = Color(0xFFE0A0FF);
+  static const proCardBg = Color(0xFFF5F0FF);
+  static const proCardText = Color(0xFF7C3AED);
+
   static const headerGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
