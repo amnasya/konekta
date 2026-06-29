@@ -4,6 +4,7 @@ import authRoutes from './routes/auth.routes';
 import profileRoutes from './routes/profile.routes';
 import discoveryRoutes from './routes/discovery.routes';
 import offerRoutes from './routes/offer.routes';
+import videoRoutes from './routes/video.routes';
 import chatRoutes from './routes/chat.routes';
 import notificationRoutes from './routes/notification.routes';
 import dashboardRoutes from './routes/dashboard.routes';
@@ -68,6 +69,7 @@ app.use('/auth', authRateLimit, googleAuthRoutes);
 app.use('/profile', profileRoutes);
 app.use('/', discoveryRoutes);        // /influencers, /brands
 app.use('/offers', offerRoutes);
+app.use('/offers/:id/videos', videoRoutes);
 app.use('/conversations', chatRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/dashboard', dashboardRoutes);

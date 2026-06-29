@@ -387,7 +387,7 @@ class _InfluencerDashboardScreenState extends State<InfluencerDashboardScreen> {
         : '—';
     return InkWell(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const CampaignRoomScreen()),
+        MaterialPageRoute(builder: (_) => CampaignRoomScreen(campaign: c)),
       ),
       borderRadius: BorderRadius.circular(32),
       child: Container(

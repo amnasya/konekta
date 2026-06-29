@@ -262,6 +262,27 @@ CREATE TABLE subscription_invoices (
 ) ENGINE=InnoDB;
 
 -- -------------------------------------------------------------
+-- Table: submitted_videos
+-- -------------------------------------------------------------
+CREATE TABLE submitted_videos (
+    id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    offer_id           BIGINT UNSIGNED NOT NULL,
+    influencer_user_id BIGINT UNSIGNED NOT NULL,
+    video_url          VARCHAR(500)    NOT NULL,
+    views_count        INT UNSIGNED    NOT NULL DEFAULT 0,
+    likes_count        INT UNSIGNED    NOT NULL DEFAULT 0,
+    shares_count       INT UNSIGNED    NOT NULL DEFAULT 0,
+    fetched_at         TIMESTAMP       NULL,
+    created_at         TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_sv_url (offer_id, influencer_user_id, video_url(200)),
+    KEY idx_sv_offer (offer_id),
+    KEY idx_sv_influencer (influencer_user_id),
+    CONSTRAINT fk_sv_offer FOREIGN KEY (offer_id) REFERENCES offers(id) ON DELETE CASCADE,
+    CONSTRAINT fk_sv_influencer FOREIGN KEY (influencer_user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- -------------------------------------------------------------
 -- Table: analytics_events
 -- -------------------------------------------------------------
 CREATE TABLE analytics_events (

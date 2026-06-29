@@ -5,6 +5,9 @@ export interface CreateOfferInput {
   title: string;
   brief?: string;
   budget: number;
+  target_views?: number;
+  target_likes?: number;
+  target_shares?: number;
   deliverables?: string;
   requirements?: string;
   target_audience?: string;
@@ -58,13 +61,18 @@ export const offerService = {
     const isPublic = data.is_public !== false ? 1 : 0;
     const [r] = await pool.query<DbResult>(
       `INSERT INTO offers
-        (brand_user_id, title, brief, budget, deliverables, requirements, target_audience, deadline, status, is_public)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`,
+        (brand_user_id, title, brief, budget,
+         target_views, target_likes, target_shares,
+         deliverables, requirements, target_audience, deadline, status, is_public)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`,
       [
         brandUserId,
         data.title,
         data.brief ?? null,
         data.budget,
+        data.target_views ?? 0,
+        data.target_likes ?? 0,
+        data.target_shares ?? 0,
         data.deliverables ?? null,
         data.requirements ?? null,
         data.target_audience ?? null,

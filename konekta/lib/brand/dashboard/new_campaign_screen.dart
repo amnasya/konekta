@@ -20,6 +20,8 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
   final TextEditingController _capacityController = TextEditingController();
   final TextEditingController _rewardController = TextEditingController();
   final TextEditingController _briefController = TextEditingController();
+  final TextEditingController _targetViewsController = TextEditingController();
+  final TextEditingController _targetLikesController = TextEditingController();
   final List<Map<String, dynamic>> _targetMetrics = [];
   final List<Map<String, dynamic>> _requirementMetrics = [];
 
@@ -233,6 +235,17 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
       return;
     }
 
+    final targetViews = int.tryParse(_targetViewsController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final targetLikes = int.tryParse(_targetLikesController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    if (targetViews <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Target views is required')));
+      return;
+    }
+    if (targetLikes <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Target likes is required')));
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       final scope = AppScope.of(context);
@@ -241,11 +254,15 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
         'title': name,
         if (brief.isNotEmpty) 'brief': brief,
         'budget': budget,
+        'target_views': targetViews,
+        'target_likes': targetLikes,
         if (_deadlineController.text.isNotEmpty) 'deadline': _deadlineController.text,
         'is_public': isPublic,
       });
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
+      // Pop kembali ke dashboard (akan auto-refresh), lalu push ke active room
+      Navigator.of(context).pop();
+      Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => BrandActiveRoomScreen(campaign: campaign)),
       );
     } on ApiException catch (e) {
@@ -266,6 +283,8 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
     _capacityController.dispose();
     _rewardController.dispose();
     _briefController.dispose();
+    _targetViewsController.dispose();
+    _targetLikesController.dispose();
     super.dispose();
   }
 
@@ -390,6 +409,20 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
                           hintText: ' Rp   123.000',
                           prefixText: '',
                           controller: _rewardController,
+                        ),
+                        const SizedBox(height: 14),
+                        _buildRowInputField(
+                          label: 'Target Total Views',
+                          hintText: '100000',
+                          prefixIcon: const Icon(Icons.visibility_outlined, size: 18, color: Colors.grey),
+                          controller: _targetViewsController,
+                        ),
+                        const SizedBox(height: 14),
+                        _buildRowInputField(
+                          label: 'Target Total Likes',
+                          hintText: '5000',
+                          prefixIcon: const Icon(Icons.favorite_outline, size: 18, color: Colors.grey),
+                          controller: _targetLikesController,
                         ),
                       ],
                     ),

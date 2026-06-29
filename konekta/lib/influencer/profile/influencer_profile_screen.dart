@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../auth/login_screen.dart';
 import '../../core/app_scope.dart';
 import '../../core/format.dart';
 import '../../data/models/influencer.dart';
@@ -93,6 +94,17 @@ class _InfluencerProfileScreenState extends State<InfluencerProfileScreen> {
       onEdit: () => _editProfile(profile),
       onAddSocial: () => _addSocial(profile),
       onRefresh: _load,
+      onLogout: _logout,
+    );
+  }
+
+  Future<void> _logout() async {
+    final scope = AppScope.of(context);
+    await scope.session.clear();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
     );
   }
 
@@ -167,12 +179,14 @@ class _ProfileBody extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onAddSocial;
   final VoidCallback onRefresh;
+  final VoidCallback onLogout;
   const _ProfileBody({
     required this.profile,
     required this.subscription,
     required this.onEdit,
     required this.onAddSocial,
     required this.onRefresh,
+    required this.onLogout,
   });
 
   @override
@@ -321,12 +335,13 @@ class _ProfileBody extends StatelessWidget {
                       const _SettingsItem(icon: Icons.lock_outline_rounded, title: 'Security'),
                       const _SettingsItem(icon: Icons.notifications_none_rounded, title: 'Notifications'),
                       const _SettingsItem(icon: Icons.help_outline_rounded, title: 'Help Center'),
-                      const _SettingsItem(
+                      _SettingsItem(
                         icon: Icons.logout_rounded,
                         title: 'Log Out',
                         iconColor: InfluencerProfileScreen._danger,
                         textColor: InfluencerProfileScreen._danger,
                         isLast: true,
+                        onTap: onLogout,
                       ),
                     ],
                   ),

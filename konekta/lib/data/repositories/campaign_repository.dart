@@ -95,4 +95,138 @@ class CampaignRepository {
       if (message != null && message.isNotEmpty) 'message': message,
     });
   }
+
+  Future<VideoSubmitResult> submitVideo(int offerId, String videoUrl) async {
+    final data = await api.post('/offers/$offerId/videos', {'video_url': videoUrl});
+    return VideoSubmitResult.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  Future<VideoListResult> listVideos(int offerId) async {
+    final data = await api.get('/offers/$offerId/videos');
+    return VideoListResult.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+
+  Future<VideoSubmitResult> refreshVideo(int offerId, int videoId) async {
+    final data = await api.post('/offers/$offerId/videos/$videoId/refresh', {});
+    return VideoSubmitResult.fromJson(Map<String, dynamic>.from(data as Map));
+  }
+}
+
+// ── Result models ─────────────────────────────────────────────────────────────
+
+class VideoStats {
+  final int views;
+  final int likes;
+  final int shares;
+  final String title;
+  final String author;
+
+  VideoStats({required this.views, required this.likes, required this.shares, required this.title, required this.author});
+
+  factory VideoStats.fromJson(Map<String, dynamic> j) {
+    num? n(dynamic v) => v == null ? null : v is num ? v : num.tryParse(v.toString());
+    return VideoStats(
+      views:  n(j['views'])?.toInt()  ?? 0,
+      likes:  n(j['likes'])?.toInt()  ?? 0,
+      shares: n(j['shares'])?.toInt() ?? 0,
+      title:  j['title']  as String? ?? '',
+      author: j['author'] as String? ?? '',
+    );
+  }
+}
+
+class VideoTotals {
+  final int views;
+  final int likes;
+  final int shares;
+  final int progress;
+
+  VideoTotals({required this.views, required this.likes, required this.shares, required this.progress});
+
+  factory VideoTotals.fromJson(Map<String, dynamic> j) {
+    num? n(dynamic v) => v == null ? null : v is num ? v : num.tryParse(v.toString());
+    return VideoTotals(
+      views:    n(j['views']    ?? j['total_views'])?.toInt()  ?? 0,
+      likes:    n(j['likes']    ?? j['total_likes'])?.toInt()  ?? 0,
+      shares:   n(j['shares']   ?? j['total_shares'])?.toInt() ?? 0,
+      progress: n(j['progress'])?.toInt() ?? 0,
+    );
+  }
+}
+
+class VideoTargets {
+  final int views;
+  final int likes;
+  final int shares;
+
+  VideoTargets({required this.views, required this.likes, required this.shares});
+
+  factory VideoTargets.fromJson(Map<String, dynamic> j) {
+    num? n(dynamic v) => v == null ? null : v is num ? v : num.tryParse(v.toString());
+    return VideoTargets(
+      views:  n(j['views'])?.toInt()  ?? 0,
+      likes:  n(j['likes'])?.toInt()  ?? 0,
+      shares: n(j['shares'])?.toInt() ?? 0,
+    );
+  }
+}
+
+class SubmittedVideo {
+  final int id;
+  final String videoUrl;
+  final int viewsCount;
+  final int likesCount;
+  final int sharesCount;
+  final String? fetchedAt;
+
+  SubmittedVideo({required this.id, required this.videoUrl, required this.viewsCount, required this.likesCount, required this.sharesCount, this.fetchedAt});
+
+  factory SubmittedVideo.fromJson(Map<String, dynamic> j) {
+    num? n(dynamic v) => v == null ? null : v is num ? v : num.tryParse(v.toString());
+    return SubmittedVideo(
+      id:          n(j['id'])?.toInt() ?? 0,
+      videoUrl:    j['video_url'] as String? ?? '',
+      viewsCount:  n(j['views_count'])?.toInt()  ?? 0,
+      likesCount:  n(j['likes_count'])?.toInt()  ?? 0,
+      sharesCount: n(j['shares_count'])?.toInt() ?? 0,
+      fetchedAt:   j['fetched_at'] as String?,
+    );
+  }
+}
+
+class VideoSubmitResult {
+  final VideoStats stats;
+  final VideoTotals totals;
+  final int progress;
+
+  VideoSubmitResult({required this.stats, required this.totals, required this.progress});
+
+  factory VideoSubmitResult.fromJson(Map<String, dynamic> j) {
+    num? n(dynamic v) => v == null ? null : v is num ? v : num.tryParse(v.toString());
+    return VideoSubmitResult(
+      stats:    VideoStats.fromJson(Map<String, dynamic>.from(j['stats'] as Map? ?? {})),
+      totals:   VideoTotals.fromJson(Map<String, dynamic>.from(j['totals'] as Map? ?? {})),
+      progress: n(j['progress'])?.toInt() ?? 0,
+    );
+  }
+}
+
+class VideoListResult {
+  final List<SubmittedVideo> videos;
+  final VideoTotals totals;
+  final VideoTargets targets;
+
+  VideoListResult({required this.videos, required this.totals, required this.targets});
+
+  factory VideoListResult.fromJson(Map<String, dynamic> j) {
+    final vList = (j['videos'] as List? ?? [])
+        .whereType<Map>()
+        .map((e) => SubmittedVideo.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    return VideoListResult(
+      videos:  vList,
+      totals:  VideoTotals.fromJson(Map<String, dynamic>.from(j['totals'] as Map? ?? {})),
+      targets: VideoTargets.fromJson(Map<String, dynamic>.from(j['targets'] as Map? ?? {})),
+    );
+  }
 }

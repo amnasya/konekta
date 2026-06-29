@@ -5,6 +5,8 @@ import '../../core/format.dart';
 import '../../notification/notifications_screen.dart';
 import '../../data/models/campaign.dart';
 import 'brand_active_room_screen.dart';
+import 'brand_completed_campaigns_screen.dart';
+import 'brand_pending_approvals_screen.dart';
 import 'new_campaign_screen.dart';
 
 class BrandDashboardScreen extends StatefulWidget {
@@ -47,9 +49,7 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
     try {
       final results = await scope.run(() async {
         final summary = await scope.api.get('/dashboard/brand');
-        final offers = await scope.api.get('/offers', query: {
-          'role': 'brand',
-        });
+        final offers = await scope.api.get('/offers/mine');
         return {
           'summary': summary,
           'rooms': offers,
@@ -198,9 +198,12 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
                         ],
                       ),
                       child: ElevatedButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const NewCampaignScreen()),
-                        ),
+                        onPressed: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const NewCampaignScreen()),
+                          );
+                          _load();
+                        },
                         icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 22),
                         label: Text(
                           'Create New Room',
@@ -235,6 +238,9 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
                       iconColor: primaryBlue,
                       title: 'Completed campaigns',
                       subtitle: '${_summary?['completed_campaigns'] ?? 0} successful collaborations',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const BrandCompletedCampaignsScreen()),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     _buildActionCard(
@@ -243,6 +249,9 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
                       iconColor: primaryBlue,
                       title: 'Pending Approvals',
                       subtitle: '${_summary?['pending_approvals'] ?? 0} awaiting your review',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const BrandPendingApprovalsScreen()),
+                      ),
                     ),
                     const SizedBox(height: 8),
 
@@ -283,9 +292,12 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
                     const SizedBox(height: 2),
 
                     if (_rooms.isEmpty)
-                      _EmptyRooms(onCreate: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const NewCampaignScreen()),
-                          ))
+                      _EmptyRooms(onCreate: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const NewCampaignScreen()),
+                            );
+                            _load();
+                          })
                     else
                       ..._rooms.take(3).map((r) => Padding(
                             padding: const EdgeInsets.only(bottom: 10),
@@ -421,8 +433,12 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
     required Color iconColor,
     required String title,
     required String subtitle,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -465,6 +481,7 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
           Icon(Icons.chevron_right, color: const Color.fromARGB(255, 71, 67, 67)),
         ],
       ),
+    ),
     );
   }
 
