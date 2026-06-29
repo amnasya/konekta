@@ -4,13 +4,28 @@ import '../../core/app_scope.dart';
 import '../../core/theme.dart';
 import '../../notification/notifications_screen.dart';
 
-const Color _kBlue = Color(0xFF1E70E7);
-const Color _kTextDark = Color(0xFF2C254A);
-const Color _kTextSubtle = Color(0xFF757D95);
-const Color _kGreen = Color(0xFF2FA85C);
-const Color _kBg = Color(0xFFEDF4FF);
-const Color _kViewsBar = Color(0xFFD3DCFA);
+const Color _kBlue      = Color(0xFF1E70E7);
+const Color _kTextDark  = Color(0xFF2C254A);
+const Color _kTextSubtle= Color(0xFF757D95);
+const Color _kGreen     = Color(0xFF2FA85C);
+const Color _kBg        = Color(0xFFEDF4FF);
+const Color _kViewsBar  = Color(0xFFD3DCFA);
 const Color _kEngageBar = Color(0xFFE8BEE3);
+
+// ---------------------------------------------------------------------------
+// Data model
+// ---------------------------------------------------------------------------
+
+class _BarEntry {
+  final String label;
+  final double views;
+  final double engagement;
+  const _BarEntry({required this.label, required this.views, required this.engagement});
+}
+
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
 
 class BrandAnalyticsScreen extends StatefulWidget {
   const BrandAnalyticsScreen({super.key});
@@ -21,18 +36,17 @@ class BrandAnalyticsScreen extends StatefulWidget {
 
 class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
   int _selectedTab = 0;
-  static const _tabs = ['Weekly', 'Monthly', 'Annually'];
+  static const _tabs    = ['Weekly', 'Monthly', 'Annually'];
+  static const _tabDays = [7, 30, 365];
 
   Map<String, dynamic>? _data;
-  bool _loading = true;
+  bool   _loading     = true;
   String? _error;
-  AppScope? _scope;
-  bool _initialized = false;
+  bool   _initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _scope = AppScope.of(context);
     if (!_initialized) {
       _initialized = true;
       _load();
@@ -40,53 +54,132 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
   }
 
   Future<void> _load() async {
-    final scope = _scope;
-    if (scope == null) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
-      final results = await scope.run(() async {
-        final summary = await scope.api.get('/dashboard/brand');
-        final offers = await scope.api.get('/offers', query: {
-          'role': 'brand',
-          'status': 'in_progress',
-        });
-        return {'summary': summary, 'offers': offers};
-      });
+      final scope  = AppScope.of(context);
+      final days   = _tabDays[_selectedTab];
+      final result = await scope.api.get('/analytics/brand', query: {'days': days});
       if (!mounted) return;
       setState(() {
-        _data = (results['summary'] is Map)
-            ? Map<String, dynamic>.from(results['summary'] as Map)
-            : <String, dynamic>{};
-        _data!['offers'] = results['offers'] is List ? results['offers'] : [];
+        _data    = result is Map ? Map<String, dynamic>.from(result as Map) : {};
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = '$e';
-        _loading = false;
-      });
+      setState(() { _error = '$e'; _loading = false; });
     }
   }
 
-  List<double> _viewsSeries() {
-    final series = (_data?['series'] as List?) ?? const [];
-    if (series.isEmpty) return const [110, 80, 130, 90, 150, 120, 135];
-    return series
-        .map<double>((e) => (e is Map ? (e['views'] ?? 0) : 0).toDouble())
-        .toList();
+  void _onTabChanged(int i) {
+    setState(() => _selectedTab = i);
+    _load();
   }
 
-  List<double> _engagementSeries() {
-    final series = (_data?['series'] as List?) ?? const [];
-    if (series.isEmpty) return const [60, 40, 70, 30, 100, 85, 75];
-    return series
-        .map<double>((e) => (e is Map ? (e['engagement'] ?? 0) : 0).toDouble())
-        .toList();
+  // ---- helpers ----
+
+  String _fmt(dynamic val) {
+    if (val == null) return '0';
+    final n = double.tryParse(val.toString()) ?? 0;
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+    if (n >= 1000)    return '${(n / 1000).toStringAsFixed(1)}k';
+    return n.toStringAsFixed(n == n.truncateToDouble() ? 0 : 1);
   }
+
+  String _fmtRupiah(dynamic val) {
+    if (val == null) return 'Rp0';
+    final n = double.tryParse(val.toString()) ?? 0;
+    if (n >= 1000000) return 'Rp${(n / 1000000).toStringAsFixed(1)}M';
+    if (n >= 1000)    return 'Rp${(n / 1000).toStringAsFixed(0)}k';
+    return 'Rp${n.toStringAsFixed(0)}';
+  }
+
+  // ---- bar data from daily_stats ----
+  // API returns: [{ day: "2024-01-15", views: 4200, engagement: 980 }, ...]
+  // views     = total views across all influencer videos under this brand
+  // engagement = total likes
+
+  List<_BarEntry> _buildBarData() {
+    final raw = (_data?['daily_stats'] as List?) ?? [];
+    if (raw.isEmpty) return [];
+
+    // Annually → group by month
+    if (_selectedTab == 2) {
+      final Map<String, _BarEntry> monthly = {};
+      for (final e in raw) {
+        final map    = e as Map;
+        final dayStr = map['day']?.toString() ?? '';
+        try {
+          final dt    = DateTime.parse(dayStr);
+          const mon   = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+          final key   = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+          final label = mon[dt.month - 1];
+          final v     = ((map['views'] ?? 0) as num).toDouble();
+          final eng   = ((map['engagement'] ?? 0) as num).toDouble();
+          if (monthly.containsKey(key)) {
+            monthly[key] = _BarEntry(
+              label:      label,
+              views:      monthly[key]!.views + v,
+              engagement: monthly[key]!.engagement + eng,
+            );
+          } else {
+            monthly[key] = _BarEntry(label: label, views: v, engagement: eng);
+          }
+        } catch (_) {}
+      }
+      return monthly.values.toList();
+    }
+
+    // Weekly / Monthly → one bar per day
+    return raw.map<_BarEntry>((e) {
+      final map    = e as Map;
+      final dayStr = map['day']?.toString() ?? '';
+      String label = dayStr;
+      try {
+        final dt = DateTime.parse(dayStr);
+        if (_selectedTab == 0) {
+          const days = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+          label = days[dt.weekday - 1];
+        } else {
+          label = dt.day.toString();
+        }
+      } catch (_) {}
+      return _BarEntry(
+        label:      label,
+        views:      ((map['views'] ?? 0) as num).toDouble(),
+        engagement: ((map['engagement'] ?? 0) as num).toDouble(),
+      );
+    }).toList();
+  }
+
+  List<BarChartGroupData> _buildBarGroups() {
+    final data = _buildBarData();
+    if (data.isEmpty) return [];
+    return List.generate(data.length, (i) => BarChartGroupData(
+      x: i,
+      barRods: [
+        BarChartRodData(
+          toY: data[i].views,
+          color: _kViewsBar,
+          width: 14,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4), topRight: Radius.circular(4),
+          ),
+        ),
+        BarChartRodData(
+          toY: data[i].engagement,
+          color: _kEngageBar,
+          width: 14,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4), topRight: Radius.circular(4),
+          ),
+        ),
+      ],
+    ));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -107,10 +200,8 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Performance',
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _kTextDark),
-                      ),
+                      const Text('Performance',
+                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: _kTextDark)),
                       const SizedBox(height: 6),
                       const Text(
                         'Daily metrics and growth analysis for your all Campaigns',
@@ -131,7 +222,7 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
                         const SizedBox(height: 24),
                         _buildGrowthSection(),
                         const SizedBox(height: 24),
-                        _buildRecentSpendingSection(),
+                        _buildCampaignSummary(),
                       ],
                     ],
                   ),
@@ -176,7 +267,7 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
           final selected = _selectedTab == i;
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _selectedTab = i),
+              onTap: () => _onTabChanged(i),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
@@ -190,7 +281,7 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
                   child: Text(
                     _tabs[i],
                     style: TextStyle(
-                      color: selected ? _kBlue : _kTextSubtle,
+                      color:      selected ? _kBlue : _kTextSubtle,
                       fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
@@ -204,9 +295,10 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
   }
 
   Widget _buildDailyPerformanceCard() {
-    final views = _viewsSeries();
-    final engagement = _engagementSeries();
-    final maxVal = [...views, ...engagement].reduce((a, b) => a > b ? a : b);
+    final barData   = _buildBarData();
+    final barGroups = _buildBarGroups();
+    final isEmpty   = barGroups.isEmpty;
+    final labels    = barData.map((e) => e.label).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -221,84 +313,87 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('ACTIVITY LOG',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _kBlue, letterSpacing: 0.5)),
+                  style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.bold,
+                      color: _kBlue, letterSpacing: 0.5)),
               Row(
                 children: [
-                  _buildLegendDot(_kViewsBar, 'Views'),
+                  _legendDot(_kViewsBar,  'Views'),
                   const SizedBox(width: 12),
-                  _buildLegendDot(_kEngageBar, 'Engagement'),
+                  _legendDot(_kEngageBar, 'Likes'),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 8),
           const Text('Daily\nPerformance',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _kTextDark, height: 1.1)),
+              style: TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.bold,
+                  color: _kTextDark, height: 1.1)),
           const SizedBox(height: 30),
-          SizedBox(
-            height: 170,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: maxVal * 1.15,
-                barTouchData: BarTouchData(enabled: false),
-                titlesData: FlTitlesData(
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (v, meta) {
-                        const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-                        if (v.toInt() < days.length) {
-                          return SideTitleWidget(
-                            axisSide: meta.axisSide,
-                            space: 8,
-                            child: Text(days[v.toInt()],
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _kTextSubtle)),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          if (isEmpty)
+            const SizedBox(
+              height: 170,
+              child: Center(
+                child: Text(
+                  'No video data yet.\nInfluencers need to submit TikTok videos\nto your campaigns first.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: _kTextSubtle, fontSize: 13),
                 ),
-                gridData: const FlGridData(show: false),
-                borderData: FlBorderData(show: false),
-                barGroups: List.generate(views.length, (i) {
-                  return BarChartGroupData(
-                    x: i,
-                    barRods: [
-                      BarChartRodData(
-                          toY: views[i],
-                          color: _kViewsBar,
-                          width: 14,
-                          borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4), topRight: Radius.circular(4))),
-                      BarChartRodData(
-                          toY: engagement[i],
-                          color: _kEngageBar,
-                          width: 14,
-                          borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(4), topRight: Radius.circular(4))),
-                    ],
-                  );
-                }),
+              ),
+            )
+          else
+            SizedBox(
+              height: 170,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: barGroups.fold<double>(1, (m, g) {
+                    final maxG = g.barRods.map((r) => r.toY).reduce((a, b) => a > b ? a : b);
+                    return maxG > m ? maxG : m;
+                  }) * 1.2,
+                  barTouchData: BarTouchData(enabled: false),
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (v, meta) {
+                          final idx = v.toInt();
+                          if (idx < labels.length) {
+                            return SideTitleWidget(
+                              axisSide: meta.axisSide,
+                              space: 8,
+                              child: Text(labels[idx],
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: _kTextSubtle)),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ),
+                    leftTitles:  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  gridData:   const FlGridData(show: false),
+                  borderData: FlBorderData(show: false),
+                  barGroups:  barGroups,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildLegendDot(Color color, String label) {
+  Widget _legendDot(Color color, String label) {
     return Row(
       children: [
         Container(
-          width: 12,
-          height: 12,
+          width: 12, height: 12,
           decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
         ),
         const SizedBox(width: 6),
@@ -308,18 +403,28 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
   }
 
   Widget _buildGrowthSection() {
-    final stats = (_data?['stats'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final kpis      = (_data?['kpis'] as Map?)?.cast<String, dynamic>() ?? {};
+    final dailyList = (_data?['daily_stats'] as List?) ?? [];
+
+    // Sum views & likes for the selected period from daily_stats
+    final totalViews = dailyList.fold<double>(
+        0, (s, e) => s + (((e as Map)['views'] ?? 0) as num).toDouble());
+    final totalLikes = dailyList.fold<double>(
+        0, (s, e) => s + (((e as Map)['engagement'] ?? 0) as num).toDouble());
+
+    final hasKpis = kpis.isNotEmpty;
+
     final metrics = [
-      ('NEW FOLLOWERS', '+${stats['new_followers'] ?? '1.2k'}'),
-      ('ENGAGEMENT RATE', '${stats['engagement_rate'] ?? '8.2'}%'),
-      ('TOTAL LIKES', '${stats['total_likes'] ?? '45k'}'),
-      ('TOTAL COMMENTS', '${stats['total_comments'] ?? '1.2k'}'),
+      ('TOTAL VIEWS',   _fmt(totalViews),                                     _kBlue),
+      ('TOTAL LIKES',   _fmt(totalLikes),                                     const Color(0xFFC48AFF)),
+      ('ACTIVE OFFERS', hasKpis ? _fmt(kpis['active_offers'])     : '—',     _kBlue),
+      ('APPLICATIONS',  hasKpis ? _fmt(kpis['total_applications']) : '—',    _kGreen),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Growth (7D)',
+        const Text('Growth',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kTextDark)),
         const SizedBox(height: 16),
         GridView.count(
@@ -330,30 +435,28 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
           mainAxisSpacing: 16,
           childAspectRatio: 1.5,
           children: metrics
-              .map((m) => _MetricCard(title: m.$1, value: m.$2))
+              .map((m) => _MetricCard(title: m.$1, value: m.$2, valueColor: m.$3))
               .toList(),
         ),
       ],
     );
   }
 
-  Widget _buildRecentSpendingSection() {
-    final campaigns = (_data?['recent_campaigns'] as List?) ?? const [];
+  Widget _buildCampaignSummary() {
+    final kpis      = (_data?['kpis'] as Map?)?.cast<String, dynamic>() ?? {};
+    final topNiches = (_data?['top_niches'] as List?) ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Recent Spending',
+        const Text('Campaign Summary',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kTextDark)),
         const SizedBox(height: 16),
         Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
           child: Column(
             children: [
-              // Header
+              // header row
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: const BoxDecoration(
@@ -363,34 +466,50 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
                 ),
                 child: const Row(
                   children: [
-                    Expanded(flex: 3, child: Text('DESCRIPTION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6E6E6E)))),
-                    Expanded(flex: 2, child: Text('DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6E6E6E)))),
-                    Expanded(
-                      flex: 2,
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Text('AMOUNT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6E6E6E))),
-                      ),
-                    ),
+                    Expanded(flex: 3, child: Text('DESCRIPTION',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6E6E6E)))),
+                    Expanded(flex: 2, child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Text('VALUE',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6E6E6E))),
+                    )),
                   ],
                 ),
               ),
-              if (campaigns.isEmpty) ...[
-                _TransactionRow(title: 'Summer Tech Series', ref: '#TXN-90281', date: 'Oct\n24, 2023', amount: '+Rp125.000', isLast: false),
-                _TransactionRow(title: 'Summer Tech Series', ref: '#TXN-90282', date: 'Oct\n24, 2023', amount: '+Rp123.000', isLast: false),
-                _TransactionRow(title: 'Summer Tech Series', ref: '#TXN-90283', date: 'Oct\n24, 2023', amount: '+Rp99.000', isLast: true),
-              ] else
-                ...List.generate(campaigns.length, (i) {
-                  final c = (campaigns[i] as Map).cast<String, dynamic>();
-                  return _TransactionRow(
-                    title: (c['title'] ?? 'Untitled').toString(),
-                    ref: '#TXN-${c['id'] ?? i}',
-                    date: (c['created_at'] ?? '-').toString(),
-                    amount: '+Rp${c['amount'] ?? '0'}',
-                    isLast: i == campaigns.length - 1,
+              if (kpis.isNotEmpty) ...[
+                _SummaryRow(label: 'Open Offers',       value: _fmt(kpis['open_offers'])),
+                _SummaryRow(label: 'Completed Offers',  value: _fmt(kpis['completed_offers'])),
+                _SummaryRow(label: 'Total Budget',      value: _fmtRupiah(kpis['total_budget'])),
+                _SummaryRow(label: 'Budget Committed',  value: _fmtRupiah(kpis['committed_spend'])),
+              ],
+              if (topNiches.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('TOP NICHES',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.bold,
+                            color: Color(0xFF6E6E6E))),
+                  ),
+                ),
+                ...topNiches.map((n) {
+                  final niche = (n as Map);
+                  return _SummaryRow(
+                    label: niche['niche']?.toString() ?? '-',
+                    value: '${niche['n'] ?? 0} influencers',
                   );
                 }),
-              // Show All button
+              ],
+              if (kpis.isEmpty && topNiches.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: Text('No data yet',
+                        style: TextStyle(color: _kTextSubtle, fontSize: 14)),
+                  ),
+                ),
+              // footer
               Container(
                 width: double.infinity,
                 decoration: const BoxDecoration(
@@ -401,14 +520,10 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
                 child: TextButton(
                   onPressed: () {},
                   style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                  child: const Text(
-                    'SHOW ALL TRANSACTIONS',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF5A5385),
-                        letterSpacing: 0.5),
-                  ),
+                  child: const Text('SHOW ALL TRANSACTIONS',
+                      style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.bold,
+                          color: Color(0xFF5A5385), letterSpacing: 0.5)),
                 ),
               ),
             ],
@@ -419,11 +534,16 @@ class _BrandAnalyticsScreenState extends State<BrandAnalyticsScreen> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Sub-widgets
+// ---------------------------------------------------------------------------
+
 class _MetricCard extends StatelessWidget {
   final String title;
   final String value;
+  final Color  valueColor;
 
-  const _MetricCard({required this.title, required this.value});
+  const _MetricCard({required this.title, required this.value, required this.valueColor});
 
   @override
   Widget build(BuildContext context) {
@@ -435,38 +555,28 @@ class _MetricCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(title,
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _kTextSubtle, letterSpacing: 0.3)),
+              style: const TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.bold,
+                  color: _kTextSubtle, letterSpacing: 0.3)),
           const SizedBox(height: 8),
           Text(value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _kBlue)),
+              style: TextStyle(
+                  fontSize: 24, fontWeight: FontWeight.bold, color: valueColor)),
         ],
       ),
     );
   }
 }
 
-class _TransactionRow extends StatelessWidget {
-  final String title;
-  final String ref;
-  final String date;
-  final String amount;
-  final bool isLast;
-
-  const _TransactionRow({
-    required this.title,
-    required this.ref,
-    required this.date,
-    required this.amount,
-    required this.isLast,
-  });
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _SummaryRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFF0F0F0))),
-      ),
       child: Row(
         children: [
           Expanded(
@@ -476,34 +586,27 @@ class _TransactionRow extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFD9E7FF), borderRadius: BorderRadius.circular(50)),
+                      color: const Color(0xFFD9E7FF),
+                      borderRadius: BorderRadius.circular(50)),
                   child: const Icon(Icons.campaign, color: Color(0xFF4285F4), size: 20),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _kTextDark),
-                          overflow: TextOverflow.ellipsis),
-                      Text('Ref: $ref', style: const TextStyle(fontSize: 10, color: Color(0xFF9E9E9E))),
-                    ],
-                  ),
+                  child: Text(label,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.bold, color: _kTextDark),
+                      overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),
           ),
           Expanded(
             flex: 2,
-            child: Text(date, style: const TextStyle(fontSize: 12, color: _kTextSubtle, height: 1.2)),
-          ),
-          Expanded(
-            flex: 2,
             child: Align(
               alignment: Alignment.centerRight,
-              child: Text(amount,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _kGreen)),
+              child: Text(value,
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.bold, color: _kGreen)),
             ),
           ),
         ],
@@ -513,9 +616,9 @@ class _TransactionRow extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
   final String message;
   final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -525,7 +628,9 @@ class _ErrorState extends StatelessWidget {
         children: [
           const Icon(Icons.cloud_off, color: _kBlue, size: 48),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center, style: const TextStyle(color: _kTextSubtle)),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: _kTextSubtle)),
           const SizedBox(height: 16),
           ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
         ],
