@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { pool, DbRow, DbResult } from '../config/db';
-import { fetchTikTokStats } from '../services/tiktok.service';
+import { fetchTikTokStats, upsertDailyStats } from '../services/tiktok.service';
 import { ok, created } from '../utils/response';
 import { ApiError } from '../utils/apiError';
 
@@ -89,6 +89,9 @@ export const videoController = {
           WHERE offer_id = ? AND influencer_user_id = ?`,
         [agg.total_views, agg.total_likes, agg.total_shares, progress, offerId, req.user.id]
       );
+
+      // Upsert today's daily stats snapshot
+      try { await upsertDailyStats(req.user!.id); } catch { /* silent */ }
 
       return created(res, {
         video_id: insertResult.insertId,
@@ -340,6 +343,9 @@ export const videoController = {
           WHERE offer_id = ? AND influencer_user_id = ?`,
         [agg.total_views, agg.total_likes, agg.total_shares, progress, offerId, req.user.id]
       );
+
+      // Upsert today's daily stats snapshot
+      try { await upsertDailyStats(req.user!.id); } catch { /* silent */ }
 
       return ok(res, { stats, totals: agg, progress }, 'Stats refreshed');
     } catch (e) { next(e); }
