@@ -69,7 +69,7 @@ app.use('/auth', authRateLimit, googleAuthRoutes);
 app.use('/profile', profileRoutes);
 app.use('/', discoveryRoutes);        // /influencers, /brands
 app.use('/offers', offerRoutes);
-app.use('/offers/:id/videos', videoRoutes);
+// videoRoutes sudah menggunakan mergeParams:true — mount via offerRoutes agar :id ter-pass dengan benar
 app.use('/conversations', chatRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/dashboard', dashboardRoutes);

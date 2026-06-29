@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../core/app_scope.dart';
 import '../../core/format.dart';
 import '../../notification/notifications_screen.dart';
@@ -238,9 +239,12 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
                       iconColor: primaryBlue,
                       title: 'Completed campaigns',
                       subtitle: '${_summary?['completed_campaigns'] ?? 0} successful collaborations',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const BrandCompletedCampaignsScreen()),
-                      ),
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const BrandCompletedCampaignsScreen()),
+                        );
+                        _load();
+                      },
                     ),
                     const SizedBox(height: 12),
                     _buildActionCard(
@@ -326,7 +330,16 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
   }
 
   Widget _buildAudienceCard() {
-    final reached = _summary?['audience_reached'];
+    final views = _summary?['this_week_views'];
+    final viewsNum = views is num ? views : num.tryParse(views?.toString() ?? '') ?? 0;
+    final growthRaw = _summary?['week_growth_pct'];
+    final growth = growthRaw is num ? growthRaw.toDouble() : double.tryParse(growthRaw?.toString() ?? '') ?? 0.0;
+    final isPositive = growth >= 0;
+    final growthText = '${isPositive ? '+' : ''}${growth.toStringAsFixed(1)}% from last week';
+
+    // Format with dots: 1.250.400
+    final formatted = NumberFormat('#,###', 'id_ID').format(viewsNum);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -342,35 +355,60 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
             color: Colors.blue.withValues(alpha: 0.06),
             blurRadius: 20,
             offset: const Offset(0, 10),
-          )
+          ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "AUDIENCE REACHED",
+            "THIS WEEK'S AUDIENCE REACHED",
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: darkText.withValues(alpha: 0.6),
+              color: const Color(0xFF1E1B4B).withValues(alpha: 0.6),
               letterSpacing: 0.8,
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            '${Format.compact(reached is num ? reached : num.tryParse(reached?.toString() ?? '') ?? 0)} Reach',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 36,
-              fontWeight: FontWeight.w900,
-              color: const Color(0xFF1E1B4B),
+          const SizedBox(height: 6),
+          RichText(
+            text: TextSpan(
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 34,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF1E1B4B),
+              ),
+              children: [
+                TextSpan(text: formatted),
+                const TextSpan(text: ' Views'),
+              ],
             ),
+          ),
+          const Divider(height: 24, color: Color(0xFFBFD7F5)),
+          Row(
+            children: [
+              Icon(
+                isPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                color: isPositive ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                size: 20,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                growthText,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: isPositive ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
             'Combined performance across all active creators.',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
-              color: const Color(0xFF1E1B4B),
+              color: const Color(0xFF1E1B4B).withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -490,21 +528,26 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
     final id = room['id'];
     final title = (room['title'] ?? 'Untitled').toString();
     final daysLeft = room['days_left'];
-    final progress = (room['progress'] is num)
-        ? (room['progress'] as num).toDouble()
-        : (num.tryParse(room['progress']?.toString() ?? '') ?? 0).toDouble();
-    final progressClamped = progress.clamp(0.0, 1.0).toDouble();
-    final isComplete = room['is_completed'] == true || room['status'] == 'completed';
+
+    // Progress = completed (paid) / total active (approved + completed)
+    final activeCount   = _tryInt(room['active_count'])    ?? 0;
+    final completedCount = _tryInt(room['completed_count']) ?? 0;
+    final progressClamped = activeCount > 0
+        ? (completedCount / activeCount).clamp(0.0, 1.0)
+        : 0.0;
+    final progressPct = (progressClamped * 100).round();
+
+    final isComplete = room['status'] == 'completed';
     final statusText = isComplete ? 'COMPLETE' : 'IN PROGRESS';
     final statusColor = isComplete ? const Color(0xFF059669) : const Color(0xFF3B82F6);
     final statusBg = isComplete ? const Color(0xFFD1FAE5) : const Color(0xFFDBEAFE);
     final daysLeftText = daysLeft == null
         ? 'No deadline'
         : (daysLeft is num ? '$daysLeft Days Left' : daysLeft.toString());
-    final applicants = room['applicants_count'];
-    final goalText = applicants != null
-        ? '$applicants applicants'
-        : 'Goal: ${Format.compact(room['budget'] is num ? room['budget'] : 0)} budget';
+
+    final goalText = activeCount > 0
+        ? '$completedCount / $activeCount influencers completed'
+        : '${_tryInt(room['applicants_count']) ?? 0} applicants';
 
     return InkWell(
       onTap: () {
@@ -606,11 +649,13 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
                   ),
                 ),
                 Text(
-                  '${(progressClamped * 100).round()}%',
+                  '$progressPct%',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: const Color.fromARGB(255, 71, 67, 67),
+                    color: progressPct >= 100
+                        ? const Color(0xFF059669)
+                        : const Color.fromARGB(255, 71, 67, 67),
                   ),
                 ),
               ],
@@ -622,7 +667,9 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
                 value: progressClamped,
                 minHeight: 8,
                 backgroundColor: const Color(0xFFE2E8F0),
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  progressPct >= 100 ? const Color(0xFF059669) : const Color(0xFF3B82F6),
+                ),
               ),
             ),
             const SizedBox(height: 12),

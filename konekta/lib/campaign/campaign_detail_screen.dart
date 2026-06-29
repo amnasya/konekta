@@ -180,6 +180,13 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen> {
               if (c.deliverables != null && c.deliverables!.isNotEmpty)
                 _DetailRow(label: 'Deliverables', value: c.deliverables!),
               _DetailRow(label: 'Applicants', value: '${c.applicantsCount ?? 0}'),
+              if ((c.maxCreators ?? 0) > 0)
+                _DetailRow(
+                  label: 'Slots',
+                  value: c.isFull
+                      ? 'Full (${c.maxCreators} / ${c.maxCreators})'
+                      : '${c.slotsLeft} left of ${c.maxCreators}',
+                ),
               if (c.daysLeft != null)
                 _DetailRow(
                   label: 'Days Left',
@@ -188,7 +195,7 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen> {
               const SizedBox(height: 24),
 
               // Apply / Applied button
-              if (c.isOpen)
+              if (c.isOpen || c.isInProgress)
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -204,32 +211,51 @@ class _CampaignDetailScreenState extends State<CampaignDetailScreen> {
                             style: TextStyle(color: Color(0xFF1FB76A), fontSize: 15, fontWeight: FontWeight.w700),
                           ),
                         )
-                      : DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [KonektaColors.primaryGradientStart, KonektaColors.primaryGradientEnd],
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: ElevatedButton(
-                            onPressed: _applying ? null : _apply,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
-                            child: _applying
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                  )
-                                : const Text(
-                                    'Apply Now',
-                                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                      : c.isFull
+                          ? Container(
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.block_rounded, size: 18, color: Color(0xFF94A3B8)),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Campaign Full',
+                                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 15, fontWeight: FontWeight.w700),
                                   ),
-                          ),
-                        ),
+                                ],
+                              ),
+                            )
+                          : DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [KonektaColors.primaryGradientStart, KonektaColors.primaryGradientEnd],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: ElevatedButton(
+                                onPressed: _applying ? null : _apply,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                                child: _applying
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      )
+                                    : const Text(
+                                        'Apply Now',
+                                        style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                                      ),
+                              ),
+                            ),
                 ),
               const SizedBox(height: 30),
             ],

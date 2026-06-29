@@ -17,6 +17,11 @@ class Campaign {
   final String? description;
   final String status;
   final num? budget;
+  final num? rewardPerCreator;
+  final int? targetViews;
+  final int? targetLikes;
+  final int? maxCreators;
+  final int? approvedCount;
   final String? deliverables;
   final String? startDate;
   final String? endDate;
@@ -35,6 +40,11 @@ class Campaign {
     this.description,
     required this.status,
     this.budget,
+    this.rewardPerCreator,
+    this.targetViews,
+    this.targetLikes,
+    this.maxCreators,
+    this.approvedCount,
     this.deliverables,
     this.startDate,
     this.endDate,
@@ -56,6 +66,11 @@ class Campaign {
       description: (json['brief'] ?? json['description']) as String?,
       status: (json['status'] ?? 'open') as String,
       budget: _n(json['budget']),
+      rewardPerCreator: _n(json['reward_per_creator']),
+      targetViews: _i(json['target_views']),
+      targetLikes: _i(json['target_likes']),
+      maxCreators: _i(json['max_creators']),
+      approvedCount: _i(json['approved_count']),
       deliverables: json['deliverables'] as String?,
       startDate: json['start_date'] as String?,
       endDate: json['end_date'] ?? json['deadline'] as String?,
@@ -70,4 +85,18 @@ class Campaign {
   bool get isOpen => status == 'open';
   bool get isInProgress => status == 'in_progress';
   bool get isCompletedStatus => status == 'completed' || isCompleted;
+
+  /// True if campaign has a slot limit AND it's been filled
+  bool get isFull {
+    final max = maxCreators ?? 0;
+    if (max <= 0) return false;
+    return (approvedCount ?? 0) >= max;
+  }
+
+  /// Remaining slots, null if unlimited
+  int? get slotsLeft {
+    final max = maxCreators ?? 0;
+    if (max <= 0) return null;
+    return (max - (approvedCount ?? 0)).clamp(0, max);
+  }
 }

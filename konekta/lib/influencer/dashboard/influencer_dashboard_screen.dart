@@ -46,9 +46,13 @@ class _InfluencerDashboardScreenState extends State<InfluencerDashboardScreen> {
       );
       List<Campaign> campaigns = const [];
       try {
-        campaigns = await _scope!.run<List<Campaign>>(
-          () => CampaignRepository(_scope!.api).listOffers(role: 'influencer', status: 'in_progress'),
+        // /offers/mine returns all influencer's applied campaigns with correct progress
+        final allMine = await _scope!.run<List<Campaign>>(
+          () => CampaignRepository(_scope!.api).listMine(),
         );
+        campaigns = allMine
+            .where((c) => c.status == 'in_progress' || c.status == 'completed')
+            .toList();
       } catch (_) {
         campaigns = summary.activeCampaignsList;
       }
@@ -85,8 +89,8 @@ class _InfluencerDashboardScreenState extends State<InfluencerDashboardScreen> {
 
   Widget _buildContent(BuildContext context, String name) {
     final summary = _summary!;
-    final views = Format.compact(summary.audienceReached);
-    final engagement = Format.compact(summary.totalInteractions);
+    final views = Format.compact(summary.totalViews);
+    final engagement = Format.compact(summary.totalLikes);
     return Stack(
       children: [
         // 1. Curved Blue Gradient Background Section
@@ -167,7 +171,7 @@ class _InfluencerDashboardScreenState extends State<InfluencerDashboardScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      // Earnings / Performance Summary
+                      // Earnings card
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(22),
@@ -186,7 +190,7 @@ class _InfluencerDashboardScreenState extends State<InfluencerDashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'AUDIENCE REACHED',
+                              "THIS MONTH'S EARNINGS",
                               style: TextStyle(
                                 color: Colors.grey,
                                 fontSize: 11,
@@ -196,16 +200,17 @@ class _InfluencerDashboardScreenState extends State<InfluencerDashboardScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              views,
+                              NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+                                  .format(summary.thisMonthEarnings),
                               style: const TextStyle(
                                 color: Color(0xFF00C853),
                                 fontSize: 32,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 20),
                             const Text(
-                              'PENDING PROPOSALS',
+                              'PENDING FROM BRANDS',
                               style: TextStyle(
                                 color: Colors.grey,
                                 fontSize: 11,
@@ -215,20 +220,21 @@ class _InfluencerDashboardScreenState extends State<InfluencerDashboardScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              summary.pendingProposals.toString(),
+                              NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+                                  .format(summary.pendingEarnings),
                               style: const TextStyle(
                                 color: Color(0xFF26264A),
-                                fontSize: 20,
+                                fontSize: 22,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             Text(
-                              'Engagement rate: ${summary.engagementRate.toStringAsFixed(1)}% across ${summary.completedCampaigns} completed campaigns.',
+                              'Automatically transferred to your registered bank account.',
                               style: TextStyle(
                                 color: Colors.grey.shade500,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
                               ),
                             ),
                           ],
@@ -371,7 +377,8 @@ class _InfluencerDashboardScreenState extends State<InfluencerDashboardScreen> {
   }
 
   Widget _buildCampaignCard(Campaign c) {
-    final progress = (c.progress ?? 0).clamp(0.0, 1.0);
+    // progress from DB is 0-100; convert to 0.0-1.0 fraction for the bar
+    final progress = ((c.progress ?? 0) / 100.0).clamp(0.0, 1.0);
     final daysLeft = c.daysLeft;
     final daysText = daysLeft == null
         ? '— Days Left'

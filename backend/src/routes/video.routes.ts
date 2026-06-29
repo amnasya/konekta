@@ -8,7 +8,8 @@ r.use(requireAuth);
 r.get('/',                          videoController.list);
 r.post('/',                         videoController.submit);
 r.post('/:videoId/refresh',         videoController.refresh);
-r.get('/brand/:influencerId',       videoController.listForBrand);
-r.post('/brand/:influencerId/pay',  videoController.payInfluencer);
+r.get('/brand/:influencerId',               videoController.listForBrand);
+r.post('/brand/:influencerId/pay',          videoController.payInfluencer);
+r.post('/brand/:influencerId/recalculate',  videoController.recalculateForBrand);
 
 export default r;

@@ -38,6 +38,15 @@ class _BrandInfluencerProgressScreenState
     setState(() { _loading = true; _error = null; });
     try {
       final scope = AppScope.of(context);
+      // First recalculate from submitted_videos to ensure fresh totals
+      try {
+        await scope.api.post(
+          '/offers/${widget.offerId}/videos/brand/${widget.influencerId}/recalculate',
+          {},
+        );
+      } catch (_) {
+        // Non-fatal — still proceed to load the data
+      }
       final res = await scope.api.get(
         '/offers/${widget.offerId}/videos/brand/${widget.influencerId}',
       );

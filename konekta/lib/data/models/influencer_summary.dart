@@ -16,6 +16,10 @@ class InfluencerSummary {
   final int completedCampaigns;
   final int activeCampaigns;
   final int pendingProposals;
+  final num thisMonthEarnings;
+  final num pendingEarnings;
+  final num totalViews;
+  final num totalLikes;
   final List<Campaign> activeCampaignsList;
 
   InfluencerSummary({
@@ -25,6 +29,10 @@ class InfluencerSummary {
     required this.completedCampaigns,
     required this.activeCampaigns,
     required this.pendingProposals,
+    required this.thisMonthEarnings,
+    required this.pendingEarnings,
+    required this.totalViews,
+    required this.totalLikes,
     this.activeCampaignsList = const [],
   });
 
@@ -35,12 +43,16 @@ class InfluencerSummary {
             .toList() ??
         const <Campaign>[];
     return InfluencerSummary(
-      audienceReached: _n(summary['audience_reached']),
-      engagementRate: _n(summary['engagement_rate']),
-      totalInteractions: _n(summary['total_interactions']),
-      completedCampaigns: _i(summary['completed_campaigns']),
-      activeCampaigns: _i(summary['active_campaigns']),
-      pendingProposals: _i(summary['pending_proposals']),
+      audienceReached:     _n(summary['audience_reached']),
+      engagementRate:      _n(summary['engagement_rate']),
+      totalInteractions:   _n(summary['total_interactions']),
+      completedCampaigns:  _i(summary['completed_campaigns']),
+      activeCampaigns:     _i(summary['active_campaigns']),
+      pendingProposals:    _i(summary['pending_proposals']),
+      thisMonthEarnings:   _n(summary['this_month_earnings']),
+      pendingEarnings:     _n(summary['pending_earnings']),
+      totalViews:          _n(summary['total_views']),
+      totalLikes:          _n(summary['total_likes']),
       activeCampaignsList: list,
     );
   }

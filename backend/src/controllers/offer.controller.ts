@@ -9,6 +9,8 @@ const createSchema = z.object({
   title: z.string().min(2).max(160),
   brief: z.string().max(2000).optional(),
   budget: z.number().positive(),
+  reward_per_creator: z.number().nonnegative().optional(),
+  max_creators: z.number().int().nonnegative().optional(),
   target_views: z.number().int().nonnegative().optional(),
   target_likes: z.number().int().nonnegative().optional(),
   target_shares: z.number().int().nonnegative().optional(),
@@ -50,8 +52,12 @@ export const offerController = {
         whereClauses.push('o.brand_user_id = ?');
         params.push(req.user?.id ?? 0);
       } else if (role === 'influencer') {
+        // For influencer browsing public open offers
         whereClauses.push('o.is_public = 1');
-        whereClauses.push('o.influencer_user_id IS NULL');
+        if (!status || status.trim() === '') {
+          // Show both open and in_progress offers (brands may still accept applicants)
+          whereClauses.push("o.status IN ('open', 'in_progress')");
+        }
       }
 
       if (status && status.trim() !== '') {
@@ -65,6 +71,7 @@ export const offerController = {
         `SELECT o.*, bp.brand_name, bp.logo_url,
                 ip.username AS influencer_username, u2.name AS influencer_name,
                 (SELECT COUNT(*) FROM campaign_applicants ca WHERE ca.offer_id = o.id) AS applicants_count,
+                (SELECT COUNT(*) FROM campaign_applicants ca WHERE ca.offer_id = o.id AND ca.status IN ('approved','completed')) AS approved_count,
                 DATEDIFF(o.deadline, CURDATE()) AS days_left
          FROM offers o
          JOIN brand_profiles bp ON bp.user_id = o.brand_user_id

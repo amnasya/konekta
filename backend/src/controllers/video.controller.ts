@@ -26,11 +26,11 @@ export const videoController = {
 
       const { video_url } = submitSchema.parse(req.body);
 
-      // Verify influencer has an approved application
+      // Verify influencer has an approved (or completed) application
       const [appRows] = await pool.query<DbRow[]>(
         `SELECT ca.id, ca.views, ca.likes, ca.shares
            FROM campaign_applicants ca
-          WHERE ca.offer_id = ? AND ca.influencer_user_id = ? AND ca.status = 'approved'`,
+          WHERE ca.offer_id = ? AND ca.influencer_user_id = ? AND ca.status IN ('approved', 'completed')`,
         [offerId, req.user.id]
       );
       if (!appRows.length) {
@@ -114,6 +114,54 @@ export const videoController = {
   },
 
   /**
+   * POST /offers/:id/videos/brand/:influencerId/recalculate
+   * Brand triggers a re-aggregate of an influencer's stats from submitted_videos.
+   */
+  async recalculateForBrand(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user || req.user.role !== 'brand') {
+        throw new ApiError(403, 'Only brands');
+      }
+      const offerId      = Number(req.params.id);
+      const influencerId = Number(req.params.influencerId);
+
+      const [own] = await pool.query<DbRow[]>(
+        'SELECT brand_user_id, target_views, target_likes, target_shares FROM offers WHERE id = ?',
+        [offerId]
+      );
+      if (!own.length) throw new ApiError(404, 'Offer not found');
+      const offerRow = own[0] as { brand_user_id: number; target_views: number; target_likes: number; target_shares: number };
+      if (offerRow.brand_user_id !== req.user.id) throw new ApiError(403, 'Not your offer');
+
+      const [aggRows] = await pool.query<DbRow[]>(
+        `SELECT COALESCE(SUM(views_count), 0) AS total_views,
+                COALESCE(SUM(likes_count), 0)  AS total_likes,
+                COALESCE(SUM(shares_count), 0) AS total_shares
+           FROM submitted_videos
+          WHERE offer_id = ? AND influencer_user_id = ?`,
+        [offerId, influencerId]
+      );
+      const agg = aggRows[0] as { total_views: number; total_likes: number; total_shares: number };
+
+      const totalViews  = Number(agg.total_views);
+      const totalLikes  = Number(agg.total_likes);
+      const totalShares = Number(agg.total_shares);
+
+      const vPct = offerRow.target_views > 0 ? Math.min(totalViews / offerRow.target_views, 1) : 0;
+      const lPct = offerRow.target_likes > 0 ? Math.min(totalLikes / offerRow.target_likes, 1) : 0;
+      const progress = Math.round((vPct * 0.6 + lPct * 0.4) * 100);
+
+      await pool.query(
+        `UPDATE campaign_applicants SET views = ?, likes = ?, shares = ?, progress = ?
+          WHERE offer_id = ? AND influencer_user_id = ?`,
+        [totalViews, totalLikes, totalShares, progress, offerId, influencerId]
+      );
+
+      return ok(res, { totals: { views: totalViews, likes: totalLikes, shares: totalShares, progress } }, 'Recalculated');
+    } catch (e) { next(e); }
+  },
+
+  /**
    * GET /offers/:id/videos/brand/:influencerId
    * Brand views a specific approved influencer's videos + progress.
    */
@@ -143,7 +191,7 @@ export const videoController = {
         [offerId, influencerId]
       );
 
-      // Get applicant totals & progress
+      // Get applicant info
       const [appRows] = await pool.query<DbRow[]>(
         `SELECT ca.views, ca.likes, ca.shares, ca.progress, ca.status,
                 u.name, u.avatar_url, ip.username, ip.niche, ip.followers_count, ip.engagement_rate
@@ -155,6 +203,37 @@ export const videoController = {
       );
       if (!appRows.length) throw new ApiError(404, 'Applicant not found');
       const app = appRows[0] as any;
+
+      // Always re-aggregate from submitted_videos as the source of truth
+      const [aggRows] = await pool.query<DbRow[]>(
+        `SELECT COALESCE(SUM(views_count), 0) AS total_views,
+                COALESCE(SUM(likes_count), 0)  AS total_likes,
+                COALESCE(SUM(shares_count), 0) AS total_shares
+           FROM submitted_videos
+          WHERE offer_id = ? AND influencer_user_id = ?`,
+        [offerId, influencerId]
+      );
+      const agg = aggRows[0] as { total_views: number; total_likes: number; total_shares: number };
+
+      const totalViews  = Number(agg.total_views);
+      const totalLikes  = Number(agg.total_likes);
+      const totalShares = Number(agg.total_shares);
+
+      // Recalculate progress from live aggregated data
+      const vPct = offerRow.target_views > 0 ? Math.min(totalViews / offerRow.target_views, 1) : 0;
+      const lPct = offerRow.target_likes > 0 ? Math.min(totalLikes / offerRow.target_likes, 1) : 0;
+      const progress = Math.round((vPct * 0.6 + lPct * 0.4) * 100);
+
+      // Sync back to campaign_applicants if the stored values are stale
+      const storedViews = Number(app.views ?? 0);
+      const storedProgress = Number(app.progress ?? 0);
+      if (storedViews !== totalViews || storedProgress !== progress) {
+        await pool.query(
+          `UPDATE campaign_applicants SET views = ?, likes = ?, shares = ?, progress = ?
+            WHERE offer_id = ? AND influencer_user_id = ?`,
+          [totalViews, totalLikes, totalShares, progress, offerId, influencerId]
+        );
+      }
 
       return ok(res, {
         influencer: {
@@ -168,10 +247,10 @@ export const videoController = {
         },
         videos,
         totals: {
-          views:    Number(app.views    ?? 0),
-          likes:    Number(app.likes    ?? 0),
-          shares:   Number(app.shares   ?? 0),
-          progress: Number(app.progress ?? 0),
+          views:    totalViews,
+          likes:    totalLikes,
+          shares:   totalShares,
+          progress: progress,
         },
         targets: {
           views:  Number(offerRow.target_views),
@@ -211,6 +290,19 @@ export const videoController = {
         [offerId, influencerId]
       );
 
+      // If all approved/completed applicants are now paid, mark the offer as completed
+      const [remaining] = await pool.query<DbRow[]>(
+        `SELECT COUNT(*) AS cnt FROM campaign_applicants
+          WHERE offer_id = ? AND status = 'approved'`,
+        [offerId]
+      );
+      if ((remaining[0] as { cnt: number }).cnt === 0) {
+        await pool.query(
+          `UPDATE offers SET status = 'completed' WHERE id = ?`,
+          [offerId]
+        );
+      }
+
       // Record earning for influencer
       await pool.query(
         `INSERT INTO earnings (influencer_user_id, offer_id, description, amount)
@@ -248,38 +340,54 @@ export const videoController = {
         [offerId, req.user.id]
       );
 
-      // applicant progress
-      const [appRows] = await pool.query<DbRow[]>(
-        `SELECT views, likes, shares, progress
-           FROM campaign_applicants
-          WHERE offer_id = ? AND influencer_user_id = ?`,
-        [offerId, req.user.id]
-      );
-      const app = (appRows[0] ?? { views: 0, likes: 0, shares: 0, progress: 0 }) as {
-        views: number; likes: number; shares: number; progress: number;
-      };
-
       // offer targets
       const [offerRows] = await pool.query<DbRow[]>(
         'SELECT target_views, target_likes, target_shares FROM offers WHERE id = ?',
         [offerId]
       );
-      const targets = (offerRows[0] ?? { target_views: 0, target_likes: 0, target_shares: 0 }) as {
+      const offerTarget = (offerRows[0] ?? { target_views: 0, target_likes: 0, target_shares: 0 }) as {
         target_views: number; target_likes: number; target_shares: number;
       };
+
+      // Always aggregate from submitted_videos as source of truth
+      const [aggRows] = await pool.query<DbRow[]>(
+        `SELECT COALESCE(SUM(views_count), 0) AS total_views,
+                COALESCE(SUM(likes_count), 0)  AS total_likes,
+                COALESCE(SUM(shares_count), 0) AS total_shares
+           FROM submitted_videos
+          WHERE offer_id = ? AND influencer_user_id = ?`,
+        [offerId, req.user.id]
+      );
+      const agg = aggRows[0] as { total_views: number; total_likes: number; total_shares: number };
+
+      const totalViews  = Number(agg.total_views);
+      const totalLikes  = Number(agg.total_likes);
+      const totalShares = Number(agg.total_shares);
+
+      // Recalculate progress
+      const vPct = offerTarget.target_views > 0 ? Math.min(totalViews / offerTarget.target_views, 1) : 0;
+      const lPct = offerTarget.target_likes > 0 ? Math.min(totalLikes / offerTarget.target_likes, 1) : 0;
+      const progress = Math.round((vPct * 0.6 + lPct * 0.4) * 100);
+
+      // Sync back to campaign_applicants if stale
+      await pool.query(
+        `UPDATE campaign_applicants SET views = ?, likes = ?, shares = ?, progress = ?
+          WHERE offer_id = ? AND influencer_user_id = ?`,
+        [totalViews, totalLikes, totalShares, progress, offerId, req.user.id]
+      );
 
       return ok(res, {
         videos,
         totals: {
-          views:  Number(app.views),
-          likes:  Number(app.likes),
-          shares: Number(app.shares),
-          progress: Number(app.progress),
+          views:    totalViews,
+          likes:    totalLikes,
+          shares:   totalShares,
+          progress: progress,
         },
         targets: {
-          views:  Number(targets.target_views),
-          likes:  Number(targets.target_likes),
-          shares: Number(targets.target_shares),
+          views:  Number(offerTarget.target_views),
+          likes:  Number(offerTarget.target_likes),
+          shares: Number(offerTarget.target_shares),
         },
       });
     } catch (e) { next(e); }

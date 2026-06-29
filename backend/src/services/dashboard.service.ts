@@ -7,22 +7,57 @@ export const dashboardService = {
       [userId]
     );
 
-    // Count active/completed from campaign_applicants (correct source for influencer campaigns)
+    // Count active/completed from campaign_applicants
     const [[counts]] = await pool.query<DbRow[]>(
       `SELECT
-         SUM(CASE WHEN o.status = 'in_progress' THEN 1 ELSE 0 END) AS active,
-         SUM(CASE WHEN o.status = 'completed'   THEN 1 ELSE 0 END) AS completed,
-         SUM(CASE WHEN ca.status = 'pending'    THEN 1 ELSE 0 END) AS pending_proposals
+         SUM(CASE WHEN o.status IN ('open','in_progress') AND ca.status = 'approved' THEN 1 ELSE 0 END) AS active,
+         SUM(CASE WHEN ca.status = 'completed' THEN 1 ELSE 0 END) AS completed,
+         SUM(CASE WHEN ca.status = 'pending'   THEN 1 ELSE 0 END) AS pending_proposals
        FROM campaign_applicants ca
        JOIN offers o ON o.id = ca.offer_id
        WHERE ca.influencer_user_id = ?`,
       [userId]
     );
 
+    // This month's earnings (from paid campaigns recorded in earnings table)
+    const [[monthEarnings]] = await pool.query<DbRow[]>(
+      `SELECT COALESCE(SUM(amount), 0) AS total
+         FROM earnings
+        WHERE influencer_user_id = ?
+          AND MONTH(created_at) = MONTH(CURDATE())
+          AND YEAR(created_at)  = YEAR(CURDATE())`,
+      [userId]
+    );
+
+    // Pending earnings = sum of reward_per_creator for approved-but-unpaid campaigns
+    const [[pendingEarnings]] = await pool.query<DbRow[]>(
+      `SELECT COALESCE(SUM(o.reward_per_creator), 0) AS total
+         FROM campaign_applicants ca
+         JOIN offers o ON o.id = ca.offer_id
+        WHERE ca.influencer_user_id = ?
+          AND ca.status = 'approved'`,
+      [userId]
+    );
+
+    // Total views & likes from submitted videos on completed (paid) campaigns
+    const [[videoStats]] = await pool.query<DbRow[]>(
+      `SELECT
+         COALESCE(SUM(sv.views_count), 0) AS total_views,
+         COALESCE(SUM(sv.likes_count), 0) AS total_likes
+       FROM submitted_videos sv
+       JOIN campaign_applicants ca
+         ON ca.offer_id = sv.offer_id AND ca.influencer_user_id = sv.influencer_user_id
+       WHERE sv.influencer_user_id = ?
+         AND ca.status = 'completed'`,
+      [userId]
+    );
+
     const [campaigns] = await pool.query<DbRow[]>(
       `SELECT o.id, o.title, o.brief, o.status, o.budget, o.deadline, o.created_at,
+              o.target_views, o.target_likes, o.reward_per_creator,
               ca.status AS application_status, ca.progress,
-              bp.brand_name
+              bp.brand_name,
+              DATEDIFF(o.deadline, CURDATE()) AS days_left
        FROM campaign_applicants ca
        JOIN offers o ON o.id = ca.offer_id
        LEFT JOIN brand_profiles bp ON bp.user_id = o.brand_user_id
@@ -32,17 +67,24 @@ export const dashboardService = {
       [userId]
     );
 
-    const p = profile as { followers_count?: number; engagement_rate?: number } | undefined;
-    const c = counts as { active?: number; completed?: number; pending_proposals?: number } | undefined;
+    const p   = profile        as { followers_count?: number; engagement_rate?: number } | undefined;
+    const c   = counts         as { active?: number; completed?: number; pending_proposals?: number } | undefined;
+    const me  = monthEarnings  as { total?: number } | undefined;
+    const pe  = pendingEarnings as { total?: number } | undefined;
+    const vs  = videoStats     as { total_views?: number; total_likes?: number } | undefined;
 
     return {
       summary: {
-        audience_reached: p?.followers_count ?? 0,
-        engagement_rate: p?.engagement_rate ?? 0,
-        total_interactions: 0,
-        completed_campaigns: c?.completed ?? 0,
-        active_campaigns: c?.active ?? 0,
-        pending_proposals: c?.pending_proposals ?? 0,
+        audience_reached:     p?.followers_count ?? 0,
+        engagement_rate:      p?.engagement_rate ?? 0,
+        total_interactions:   0,
+        completed_campaigns:  c?.completed ?? 0,
+        active_campaigns:     c?.active ?? 0,
+        pending_proposals:    c?.pending_proposals ?? 0,
+        this_month_earnings:  Number(me?.total ?? 0),
+        pending_earnings:     Number(pe?.total ?? 0),
+        total_views:          Number(vs?.total_views ?? 0),
+        total_likes:          Number(vs?.total_likes ?? 0),
       },
       active_campaigns: campaigns,
     };
@@ -77,6 +119,33 @@ export const dashboardService = {
       [userId]
     );
 
+    // This week's total views from paid influencer videos
+    const [[thisWeek]] = await pool.query<DbRow[]>(
+      `SELECT COALESCE(SUM(sv.views_count), 0) AS views
+         FROM submitted_videos sv
+         JOIN campaign_applicants ca
+           ON ca.offer_id = sv.offer_id AND ca.influencer_user_id = sv.influencer_user_id
+         JOIN offers o ON o.id = sv.offer_id
+        WHERE o.brand_user_id = ?
+          AND ca.status = 'completed'
+          AND sv.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`,
+      [userId]
+    );
+
+    // Last week's total views (for growth % comparison)
+    const [[lastWeek]] = await pool.query<DbRow[]>(
+      `SELECT COALESCE(SUM(sv.views_count), 0) AS views
+         FROM submitted_videos sv
+         JOIN campaign_applicants ca
+           ON ca.offer_id = sv.offer_id AND ca.influencer_user_id = sv.influencer_user_id
+         JOIN offers o ON o.id = sv.offer_id
+        WHERE o.brand_user_id = ?
+          AND ca.status = 'completed'
+          AND sv.created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+          AND sv.created_at <  DATE_SUB(CURDATE(), INTERVAL 7 DAY)`,
+      [userId]
+    );
+
     const [recent_campaigns] = await pool.query<DbRow[]>(
       `SELECT o.id, o.title, o.deadline, o.status, o.budget, o.room_code,
               o.is_public,
@@ -91,30 +160,40 @@ export const dashboardService = {
       [userId]
     );
 
-    const ap = approvals as { cnt?: number } | undefined;
-    const cf = perf as { avg_engagement?: number; total_followers?: number } | undefined;
-    const co = counts as {
+    const ap  = approvals as { cnt?: number } | undefined;
+    const cf  = perf      as { avg_engagement?: number; total_followers?: number } | undefined;
+    const co  = counts    as {
       creators_hired?: number; total_budget?: number; campaigns_created?: number;
       active_campaigns?: number; completed_campaigns?: number;
     } | undefined;
+    const tw  = thisWeek  as { views?: number } | undefined;
+    const lw  = lastWeek  as { views?: number } | undefined;
+
+    const thisWeekViews = Number(tw?.views ?? 0);
+    const lastWeekViews = Number(lw?.views ?? 0);
+    const weekGrowthPct = lastWeekViews > 0
+      ? Math.round(((thisWeekViews - lastWeekViews) / lastWeekViews) * 1000) / 10
+      : (thisWeekViews > 0 ? 100 : 0);
 
     return {
       summary: {
-        audience_reached: Number(cf?.total_followers ?? 0),
-        engagement_rate: Number((cf?.avg_engagement ?? 0)),
-        total_interactions: 0,
-        completed_campaigns: co?.completed_campaigns ?? 0,
-        active_campaigns: co?.active_campaigns ?? 0,
-        pending_approvals: ap?.cnt ?? 0,
-        creators_hired: co?.creators_hired ?? 0,
-        total_budget: co?.total_budget ?? 0,
-        campaigns_created: co?.campaigns_created ?? 0,
+        audience_reached:      Number(cf?.total_followers ?? 0),
+        engagement_rate:       Number(cf?.avg_engagement  ?? 0),
+        total_interactions:    0,
+        completed_campaigns:   co?.completed_campaigns ?? 0,
+        active_campaigns:      co?.active_campaigns    ?? 0,
+        pending_approvals:     ap?.cnt ?? 0,
+        creators_hired:        co?.creators_hired  ?? 0,
+        total_budget:          co?.total_budget    ?? 0,
+        campaigns_created:     co?.campaigns_created ?? 0,
+        this_week_views:       thisWeekViews,
+        week_growth_pct:       weekGrowthPct,
       },
       stats: {
-        total_campaigns: co?.campaigns_created ?? 0,
-        active_campaigns: co?.active_campaigns ?? 0,
+        total_campaigns:     co?.campaigns_created ?? 0,
+        active_campaigns:    co?.active_campaigns  ?? 0,
         completed_campaigns: co?.completed_campaigns ?? 0,
-        total_budget: co?.total_budget ?? 0,
+        total_budget:        co?.total_budget ?? 0,
       },
       recent_campaigns,
     };

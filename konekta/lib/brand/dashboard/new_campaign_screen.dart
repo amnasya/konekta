@@ -246,6 +246,8 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
       return;
     }
 
+    final capacity = int.tryParse(_capacityController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+
     setState(() => _saving = true);
     try {
       final scope = AppScope.of(context);
@@ -254,6 +256,8 @@ class _NewCampaignScreenState extends State<NewCampaignScreen> {
         'title': name,
         if (brief.isNotEmpty) 'brief': brief,
         'budget': budget,
+        'reward_per_creator': budget,
+        'max_creators': capacity,
         'target_views': targetViews,
         'target_likes': targetLikes,
         if (_deadlineController.text.isNotEmpty) 'deadline': _deadlineController.text,

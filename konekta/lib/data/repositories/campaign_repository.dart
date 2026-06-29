@@ -54,6 +54,14 @@ class CampaignRepository {
   final ApiClient api;
   CampaignRepository(this.api);
 
+  /// Returns all campaigns the current influencer has applied to
+  /// (includes approved/in_progress with correct progress & targets).
+  Future<List<Campaign>> listMine() async {
+    final data = await api.get('/offers/mine');
+    final list = (data as List).cast<Map>();
+    return list.map((e) => Campaign.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
   Future<List<Campaign>> listOffers({
     String role = 'influencer',
     String? status,

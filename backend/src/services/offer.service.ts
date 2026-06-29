@@ -5,6 +5,8 @@ export interface CreateOfferInput {
   title: string;
   brief?: string;
   budget: number;
+  reward_per_creator?: number;
+  max_creators?: number;
   target_views?: number;
   target_likes?: number;
   target_shares?: number;
@@ -19,7 +21,9 @@ export const offerService = {
   async listForBrand(brandUserId: number) {
     const [rows] = await pool.query<DbRow[]>(
       `SELECT o.*, bp.brand_name,
-              (SELECT COUNT(*) FROM campaign_applicants ca WHERE ca.offer_id = o.id) AS applicants_count
+              (SELECT COUNT(*) FROM campaign_applicants ca WHERE ca.offer_id = o.id) AS applicants_count,
+              (SELECT COUNT(*) FROM campaign_applicants ca WHERE ca.offer_id = o.id AND ca.status IN ('approved','completed')) AS active_count,
+              (SELECT COUNT(*) FROM campaign_applicants ca WHERE ca.offer_id = o.id AND ca.status = 'completed') AS completed_count
          FROM offers o
          JOIN brand_profiles bp ON bp.user_id = o.brand_user_id
         WHERE o.brand_user_id = ?
@@ -32,10 +36,12 @@ export const offerService = {
   async listForInfluencer(influencerUserId: number) {
     const [rows] = await pool.query<DbRow[]>(
       `SELECT o.*, bp.brand_name,
-              ca.id AS application_id, ca.status AS application_status, ca.proposed_rate
+              ca.id AS application_id, ca.status AS application_status,
+              ca.proposed_rate, ca.progress,
+              DATEDIFF(o.deadline, CURDATE()) AS days_left
          FROM offers o
          JOIN brand_profiles bp ON bp.user_id = o.brand_user_id
-    LEFT JOIN campaign_applicants ca
+         JOIN campaign_applicants ca
            ON ca.offer_id = o.id AND ca.influencer_user_id = ?
         ORDER BY o.created_at DESC`,
       [influencerUserId]
@@ -59,17 +65,21 @@ export const offerService = {
 
   async create(brandUserId: number, data: CreateOfferInput) {
     const isPublic = data.is_public !== false ? 1 : 0;
+    const rewardPerCreator = data.reward_per_creator ?? data.budget;
+    const maxCreators = data.max_creators ?? 0;
     const [r] = await pool.query<DbResult>(
       `INSERT INTO offers
-        (brand_user_id, title, brief, budget,
+        (brand_user_id, title, brief, budget, reward_per_creator, max_creators,
          target_views, target_likes, target_shares,
          deliverables, requirements, target_audience, deadline, status, is_public)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`,
       [
         brandUserId,
         data.title,
         data.brief ?? null,
         data.budget,
+        rewardPerCreator,
+        maxCreators,
         data.target_views ?? 0,
         data.target_likes ?? 0,
         data.target_shares ?? 0,
@@ -170,32 +180,33 @@ export const offerService = {
       'UPDATE campaign_applicants SET status = ? WHERE id = ? AND offer_id = ?',
       [status, applicationId, offerId]
     );
-    if (status === 'approved') {
-      const conn = await pool.getConnection();
-      try {
-        await conn.beginTransaction();
-        await conn.query(
-          'UPDATE campaign_applicants SET status = "rejected" WHERE offer_id = ? AND id <> ? AND status NOT IN ("approved","completed")',
-          [offerId, applicationId]
-        );
-        await conn.query('UPDATE offers SET status = "in_progress" WHERE id = ?', [offerId]);
-        await conn.commit();
-      } catch (e) {
-        await conn.rollback();
-        throw e;
-      } finally {
-        conn.release();
-      }
-    }
+    // Do NOT auto-close the offer — brand campaigns support multiple influencers.
+    // The offer stays 'open' so other influencers can still apply and be approved.
+    // Brand manually closes/completes the offer when ready.
     return { ok: true, status };
   },
 
   async apply(offerId: number, influencerUserId: number, payload: { message?: string; proposed_rate?: number }) {
-    const [o] = await pool.query<DbRow[]>('SELECT brand_user_id, status FROM offers WHERE id = ?', [offerId]);
+    const [o] = await pool.query<DbRow[]>('SELECT brand_user_id, status, max_creators FROM offers WHERE id = ?', [offerId]);
     if (!o.length) throw new ApiError(404, 'Offer not found');
-    if ((o[0] as { status: string }).status !== 'open') {
-      throw new ApiError(400, 'Offer is not open for applications');
+    const offer = o[0] as { status: string; max_creators: number };
+    if (!['open', 'in_progress'].includes(offer.status)) {
+      throw new ApiError(400, 'Offer is not accepting applications');
     }
+
+    // Check if campaign is full (max_creators = 0 means unlimited)
+    if (offer.max_creators > 0) {
+      const [countRows] = await pool.query<DbRow[]>(
+        `SELECT COUNT(*) AS cnt FROM campaign_applicants
+          WHERE offer_id = ? AND status IN ('approved', 'completed')`,
+        [offerId]
+      );
+      const approved = (countRows[0] as { cnt: number }).cnt;
+      if (approved >= offer.max_creators) {
+        throw new ApiError(400, 'This campaign has reached its maximum number of creators');
+      }
+    }
+
     const [dup] = await pool.query<DbRow[]>(
       'SELECT id FROM campaign_applicants WHERE offer_id = ? AND influencer_user_id = ?',
       [offerId, influencerUserId]

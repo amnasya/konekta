@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { offerController } from '../controllers/offer.controller';
 import { requireAuth } from '../middlewares/auth';
+import videoRoutes from './video.routes';
 
 const r = Router();
 
@@ -26,5 +27,8 @@ r.post('/:id/applicants', requireAuth, offerController.apply);
 // Progress
 r.post('/:id/progress', requireAuth, offerController.addProgress);
 r.get('/:id/progress', requireAuth, offerController.getProgress);
+
+// Video submissions — nested under /:id so mergeParams works correctly
+r.use('/:id/videos', videoRoutes);
 
 export default r;

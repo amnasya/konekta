@@ -293,6 +293,7 @@ CREATE TABLE `offers` (
   `target_audience` varchar(255) DEFAULT NULL,
   `deadline` date DEFAULT NULL,
   `room_code` varchar(40) DEFAULT NULL,
+  `max_creators` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `status` enum('draft','open','offered','negotiation','accepted','in_progress','submitted','completed','rejected','cancelled') NOT NULL DEFAULT 'open',
   `is_public` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),

@@ -54,7 +54,7 @@ class _InfluencerExploreScreenState extends State<InfluencerExploreScreen> {
     try {
       final data = await scope.api.get(
         '/offers',
-        query: {'role': 'influencer', 'status': 'open', 'page': 1, 'limit': 50},
+        query: {'role': 'influencer', 'page': 1, 'limit': 50},
         auth: false,
       );
       final list = (data as List)
@@ -358,11 +358,15 @@ class _CampaignCard extends StatelessWidget {
                 : 'Closed';
     final budget = c.budget != null ? rupiah.format(c.budget) : '—';
     final applicants = c.applicantsCount ?? 0;
+    final isFull = c.isFull;
+    final slotsLeft = c.slotsLeft;
 
     return InkWell(
-      onTap: onTap,
+      onTap: isFull ? null : onTap,
       borderRadius: BorderRadius.circular(20),
-      child: Container(
+      child: Opacity(
+        opacity: isFull ? 0.65 : 1.0,
+        child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -417,16 +421,25 @@ class _CampaignCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Status / full chip
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: c.isOpen ? const Color(0xFFD6F8E8) : const Color(0xFFC8CED4),
+                    color: isFull
+                        ? const Color(0xFFF1F5F9)
+                        : c.isOpen
+                            ? const Color(0xFFD6F8E8)
+                            : const Color(0xFFDBEAFE),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    c.isOpen ? 'OPEN' : c.status.toUpperCase(),
+                    isFull ? 'FULL' : c.isOpen ? 'OPEN' : 'ACTIVE',
                     style: TextStyle(
-                      color: c.isOpen ? const Color(0xFF00C853) : const Color(0xFF6B7280),
+                      color: isFull
+                          ? const Color(0xFF94A3B8)
+                          : c.isOpen
+                              ? const Color(0xFF00C853)
+                              : const Color(0xFF3B82F6),
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                     ),
@@ -455,11 +468,49 @@ class _CampaignCard extends StatelessWidget {
                     Text(budget, style: const TextStyle(color: Color(0xFF3AA1FF), fontSize: 15, fontWeight: FontWeight.w800)),
                   ],
                 ),
-                const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: KonektaColors.textMuted),
+                // Slots info
+                if (!isFull && slotsLeft != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.person_add_outlined, size: 11, color: Color(0xFFF59E0B)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$slotsLeft slot${slotsLeft == 1 ? '' : 's'} left',
+                          style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (isFull)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.block_rounded, size: 11, color: Color(0xFF94A3B8)),
+                        SizedBox(width: 4),
+                        Text('Campaign full', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  )
+                else
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: KonektaColors.textMuted),
               ],
             ),
           ],
         ),
+      ),
       ),
     );
   }

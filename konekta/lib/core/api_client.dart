@@ -17,7 +17,7 @@ class ApiClient {
   // Override with --dart-define=API_BASE_URL=...
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:4000',
+    defaultValue: 'http://localhost:4000',
   );
 
   ApiClient(this.session);

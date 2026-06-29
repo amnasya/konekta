@@ -119,8 +119,8 @@ class _CampaignRoomScreenState extends State<CampaignRoomScreen> {
     final progressFraction = (progress / 100.0).clamp(0.0, 1.0);
     final totalViews  = totals?.views  ?? 0;
     final totalLikes  = totals?.likes  ?? 0;
-    final targetViews = targets?.views ?? 0;
-    final targetLikes = targets?.likes ?? 0;
+    final targetViews = targets?.views ?? c.targetViews ?? 0;
+    final targetLikes = targets?.likes ?? c.targetLikes ?? 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFEDF4FC),

@@ -70,8 +70,9 @@ class _BrandActiveRoomScreenState extends State<BrandActiveRoomScreen> {
     }
   }
 
-  List<Applicant> get _pending => _applicants.where((a) => a.status == 'pending').toList();
-  List<Applicant> get _approved => _applicants.where((a) => a.status == 'approved').toList();
+  List<Applicant> get _pending   => _applicants.where((a) => a.status == 'pending').toList();
+  List<Applicant> get _approved  => _applicants.where((a) => a.status == 'approved' || a.status == 'completed').toList();
+  List<Applicant> get _completed => _applicants.where((a) => a.status == 'completed').toList();
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +109,15 @@ class _BrandActiveRoomScreenState extends State<BrandActiveRoomScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _CampaignInfoCard(campaign: c, rupiah: rupiah),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+
+              // ── CAMPAIGN PROGRESS CARD ──────────────────────────────
+              if (!_loading) _CampaignProgressCard(
+                approved:  _approved.length,
+                completed: _completed.length,
+              ),
+              if (!_loading) const SizedBox(height: 20),
+
               _SectionHeader(
                 title: 'Action Required',
                 badge: _loading ? null : _pending.length,
@@ -156,6 +165,137 @@ class _BrandActiveRoomScreenState extends State<BrandActiveRoomScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── Campaign progress card ────────────────────────────────────────────────────
+
+class _CampaignProgressCard extends StatelessWidget {
+  final int approved;
+  final int completed;
+  const _CampaignProgressCard({required this.approved, required this.completed});
+
+  @override
+  Widget build(BuildContext context) {
+    // total = approved (active) + completed (paid)
+    final total = approved + completed;
+    final progress = total > 0 ? (completed / total) : 0.0;
+    final pct = (progress * 100).round();
+    final isComplete = total > 0 && completed >= total;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Campaign Progress',
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))),
+              Text('$pct%',
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: isComplete ? const Color(0xFF22C55E) : const Color(0xFF3B82F6))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 10,
+              backgroundColor: const Color(0xFFE2E8F0),
+              valueColor: AlwaysStoppedAnimation(
+                  isComplete ? const Color(0xFF22C55E) : const Color(0xFF3B82F6)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _ProgressStat(
+                label: 'Paid',
+                value: '$completed',
+                color: const Color(0xFF22C55E),
+                icon: Icons.payments_rounded,
+              ),
+              const SizedBox(width: 16),
+              _ProgressStat(
+                label: 'In Progress',
+                value: '$approved',
+                color: const Color(0xFF3B82F6),
+                icon: Icons.pending_rounded,
+              ),
+              const SizedBox(width: 16),
+              _ProgressStat(
+                label: 'Total',
+                value: '$total',
+                color: const Color(0xFF64748B),
+                icon: Icons.people_rounded,
+              ),
+            ],
+          ),
+          if (isComplete) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(10)),
+              child: Row(
+                children: [
+                  const Icon(Icons.emoji_events_rounded, color: Color(0xFF16A34A), size: 16),
+                  const SizedBox(width: 8),
+                  Text('All influencers have been paid!',
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12, color: const Color(0xFF16A34A), fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+  const _ProgressStat({required this.label, required this.value, required this.color, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          child: Icon(icon, size: 13, color: color),
+        ),
+        const SizedBox(width: 6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value,
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF1E293B))),
+            Text(label,
+                style: GoogleFonts.plusJakartaSans(fontSize: 10, color: const Color(0xFF94A3B8))),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -400,14 +540,27 @@ class _ParticipantCard extends StatelessWidget {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: a.status == 'completed' ? const Color(0xFFDCFCE7) : const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF16A34A)),
+                Icon(
+                  a.status == 'completed' ? Icons.payments_rounded : Icons.check_circle_rounded,
+                  size: 12,
+                  color: a.status == 'completed' ? const Color(0xFF16A34A) : const Color(0xFF3B82F6),
+                ),
                 const SizedBox(width: 4),
-                Text('APPROVED',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: const Color(0xFF16A34A))),
+                Text(
+                  a.status == 'completed' ? 'PAID' : 'APPROVED',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: a.status == 'completed' ? const Color(0xFF16A34A) : const Color(0xFF3B82F6),
+                  ),
+                ),
               ],
             ),
           ),

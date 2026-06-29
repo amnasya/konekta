@@ -41,7 +41,14 @@ class _RoleSelectScreenState extends State<RoleSelectScreen> {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => CompleteProfileScreen(role: _role)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sign up failed: $e')));
+      // Pop back to register screen so user can fix their input
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sign up failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -91,6 +98,21 @@ class _RoleSelectScreenState extends State<RoleSelectScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Back button
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: KonektaColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: KonektaColors.border),
+                  ),
+                  child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: KonektaColors.textPrimary),
+                ),
+              ),
+              const SizedBox(height: 20),
               const Text(
                 'How are you planning\nto use Konekta?',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: KonektaColors.textPrimary, height: 1.2),
