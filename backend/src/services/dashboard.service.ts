@@ -146,6 +146,21 @@ export const dashboardService = {
       [userId]
     );
 
+    // Avg engagement rate & total interactions from ALL paid videos (all time)
+    const [[engStats]] = await pool.query<DbRow[]>(
+      `SELECT
+         COALESCE(SUM(sv.views_count), 0) AS total_views,
+         COALESCE(SUM(sv.likes_count), 0) AS total_likes,
+         COALESCE(SUM(sv.shares_count), 0) AS total_shares
+       FROM submitted_videos sv
+       JOIN campaign_applicants ca
+         ON ca.offer_id = sv.offer_id AND ca.influencer_user_id = sv.influencer_user_id
+       JOIN offers o ON o.id = sv.offer_id
+      WHERE o.brand_user_id = ?
+        AND ca.status = 'completed'`,
+      [userId]
+    );
+
     const [recent_campaigns] = await pool.query<DbRow[]>(
       `SELECT o.id, o.title, o.deadline, o.status, o.budget, o.room_code,
               o.is_public,
@@ -168,6 +183,7 @@ export const dashboardService = {
     } | undefined;
     const tw  = thisWeek  as { views?: number } | undefined;
     const lw  = lastWeek  as { views?: number } | undefined;
+    const es  = engStats  as { total_views?: number; total_likes?: number; total_shares?: number } | undefined;
 
     const thisWeekViews = Number(tw?.views ?? 0);
     const lastWeekViews = Number(lw?.views ?? 0);
@@ -175,11 +191,20 @@ export const dashboardService = {
       ? Math.round(((thisWeekViews - lastWeekViews) / lastWeekViews) * 1000) / 10
       : (thisWeekViews > 0 ? 100 : 0);
 
+    const allTimeViews  = Number(es?.total_views  ?? 0);
+    const allTimeLikes  = Number(es?.total_likes  ?? 0);
+    const allTimeShares = Number(es?.total_shares ?? 0);
+    // Avg engagement = likes / views * 100 (%)
+    const avgEngagement = allTimeViews > 0
+      ? Math.round((allTimeLikes / allTimeViews) * 10000) / 100
+      : 0;
+    const totalInteractions = allTimeLikes + allTimeShares;
+
     return {
       summary: {
         audience_reached:      Number(cf?.total_followers ?? 0),
-        engagement_rate:       Number(cf?.avg_engagement  ?? 0),
-        total_interactions:    0,
+        engagement_rate:       avgEngagement,
+        total_interactions:    totalInteractions,
         completed_campaigns:   co?.completed_campaigns ?? 0,
         active_campaigns:      co?.active_campaigns    ?? 0,
         pending_approvals:     ap?.cnt ?? 0,

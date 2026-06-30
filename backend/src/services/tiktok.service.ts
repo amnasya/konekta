@@ -52,18 +52,28 @@ export async function fetchTikTokStats(videoUrl: string): Promise<TikTokStats> {
     timeout: 12000,
   });
 
-  const itemStruct = res.data?.itemInfo?.itemStruct;
+  const data = res.data;
+
+  const itemStruct =
+    data?.itemInfo?.itemStruct ??
+    data?.data?.itemInfo?.itemStruct ??
+    data?.data ??
+    data?.item ??
+    null;
+
   if (!itemStruct) {
     throw new Error('Unexpected response from TikTok API');
   }
 
-  const stats = itemStruct.stats ?? {};
-  result.views    = Number(stats.playCount    ?? 0);
-  result.likes    = Number(stats.diggCount    ?? 0);
-  result.shares   = Number(stats.shareCount   ?? 0);
-  result.comments = Number(stats.commentCount ?? 0);
-  result.title    = (itemStruct.desc ?? itemStruct.contents?.[0]?.desc ?? '').slice(0, 200);
-  result.author   = itemStruct.author?.nickname ?? itemStruct.author?.uniqueId ?? '';
+  const stats   = itemStruct.stats   ?? itemStruct.statsV2 ?? {};
+  const statics = itemStruct.statistics ?? {};
+
+  result.views    = Number(stats.playCount    ?? stats.play_count    ?? statics.play_count    ?? 0);
+  result.likes    = Number(stats.diggCount    ?? stats.digg_count    ?? statics.digg_count    ?? 0);
+  result.shares   = Number(stats.shareCount   ?? stats.share_count   ?? statics.share_count   ?? 0);
+  result.comments = Number(stats.commentCount ?? stats.comment_count ?? statics.comment_count ?? 0);
+  result.title    = (itemStruct.desc ?? itemStruct.title ?? itemStruct.contents?.[0]?.desc ?? '').slice(0, 200);
+  result.author   = itemStruct.author?.nickname ?? itemStruct.author?.unique_id ?? itemStruct.author?.uniqueId ?? '';
 
   return result;
 }
@@ -145,9 +155,10 @@ export async function refreshAllVideosForUser(userId: number): Promise<void> {
       if (!offerRows.length) continue;
       const offer = offerRows[0] as { target_views: number; target_likes: number };
 
-      const vPct = offer.target_views > 0 ? Math.min(agg.total_views / offer.target_views, 1) : 0;
-      const lPct = offer.target_likes > 0 ? Math.min(agg.total_likes / offer.target_likes, 1) : 0;
-      const progress = Math.round((vPct * 0.6 + lPct * 0.4) * 100);
+      const vPct = offer.target_views > 0 ? Math.min(agg.total_views / offer.target_views, 1) : 1;
+      const lPct = offer.target_likes > 0 ? Math.min(agg.total_likes / offer.target_likes, 1) : 1;
+      const noTarget = offer.target_views === 0 && offer.target_likes === 0;
+      const progress = noTarget ? 100 : Math.round((vPct * 0.6 + lPct * 0.4) * 100);
 
       await pool.query(
         `UPDATE campaign_applicants

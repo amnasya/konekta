@@ -22,6 +22,7 @@ class Campaign {
   final int? targetLikes;
   final int? maxCreators;
   final int? approvedCount;
+  final String? applicationStatus;
   final String? deliverables;
   final String? startDate;
   final String? endDate;
@@ -45,6 +46,7 @@ class Campaign {
     this.targetLikes,
     this.maxCreators,
     this.approvedCount,
+    this.applicationStatus,
     this.deliverables,
     this.startDate,
     this.endDate,
@@ -62,7 +64,6 @@ class Campaign {
       brandName: json['brand_name'] as String?,
       brandLogoUrl: json['brand_logo_url'] as String?,
       title: (json['title'] ?? '') as String,
-      // backend returns 'brief' — fall back to 'description' for compatibility
       description: (json['brief'] ?? json['description']) as String?,
       status: (json['status'] ?? 'open') as String,
       budget: _n(json['budget']),
@@ -71,6 +72,7 @@ class Campaign {
       targetLikes: _i(json['target_likes']),
       maxCreators: _i(json['max_creators']),
       approvedCount: _i(json['approved_count']),
+      applicationStatus: json['application_status'] as String?,
       deliverables: json['deliverables'] as String?,
       startDate: json['start_date'] as String?,
       endDate: json['end_date'] ?? json['deadline'] as String?,
@@ -78,7 +80,8 @@ class Campaign {
       applicantsCount: _i(json['applicants_count']),
       daysLeft: _i(json['days_left']),
       isCompleted: (json['is_completed'] ?? false) == true,
-      hasApplied: (json['has_applied'] ?? false) == true,
+      hasApplied: (json['has_applied'] ?? false) == true ||
+          json['application_status'] != null,
     );
   }
 

@@ -67,12 +67,16 @@ export const offerController = {
 
       const where = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
+      const influencerId = req.user?.role === 'influencer' ? (req.user?.id ?? 0) : 0;
+
       const [rows] = await pool.query<DbRow[]>(
         `SELECT o.*, bp.brand_name, bp.logo_url,
                 ip.username AS influencer_username, u2.name AS influencer_name,
                 (SELECT COUNT(*) FROM campaign_applicants ca WHERE ca.offer_id = o.id) AS applicants_count,
                 (SELECT COUNT(*) FROM campaign_applicants ca WHERE ca.offer_id = o.id AND ca.status IN ('approved','completed')) AS approved_count,
-                DATEDIFF(o.deadline, CURDATE()) AS days_left
+                DATEDIFF(o.deadline, CURDATE()) AS days_left,
+                (SELECT ca2.status FROM campaign_applicants ca2
+                  WHERE ca2.offer_id = o.id AND ca2.influencer_user_id = ?) AS application_status
          FROM offers o
          JOIN brand_profiles bp ON bp.user_id = o.brand_user_id
          LEFT JOIN influencer_profiles ip ON ip.user_id = o.influencer_user_id
@@ -80,7 +84,7 @@ export const offerController = {
          ${where}
          ORDER BY o.created_at DESC
          LIMIT ? OFFSET ?`,
-        [...params, limit, offset]
+        [influencerId, ...params, limit, offset]
       );
       return ok(res, rows);
     } catch (e) { next(e); }

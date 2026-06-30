@@ -34,15 +34,14 @@ class _BrandCompletedCampaignsScreenState extends State<BrandCompletedCampaignsS
       final scope = AppScope.of(context);
       final repo = CampaignRepository(scope.api);
 
-      // Fetch all brand campaigns (open + in_progress + completed)
+      // Fetch all brand campaigns
       final res = await scope.api.get('/offers/mine');
       final campaigns = (res as List)
           .whereType<Map>()
           .map((e) => Campaign.fromJson(e.cast<String, dynamic>()))
-          .where((c) => c.status == 'in_progress' || c.status == 'completed')
           .toList();
 
-      // For each campaign, get approved applicants
+      // For each campaign, get approved/completed applicants
       final results = await Future.wait(
         campaigns.map((c) async {
           try {
@@ -58,7 +57,7 @@ class _BrandCompletedCampaignsScreenState extends State<BrandCompletedCampaignsS
       );
 
       if (!mounted) return;
-      // Only show campaigns that have approved influencers
+      // Show campaigns that have at least one approved/completed influencer
       setState(() {
         _items = results.where((r) => r.applicants.isNotEmpty).toList();
         _loading = false;

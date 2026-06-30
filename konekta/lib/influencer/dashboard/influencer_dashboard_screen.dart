@@ -51,7 +51,9 @@ class _InfluencerDashboardScreenState extends State<InfluencerDashboardScreen> {
           () => CampaignRepository(_scope!.api).listMine(),
         );
         campaigns = allMine
-            .where((c) => c.status == 'in_progress' || c.status == 'completed')
+            .where((c) =>
+                c.applicationStatus == 'approved' ||
+                c.applicationStatus == 'completed')
             .toList();
       } catch (_) {
         campaigns = summary.activeCampaignsList;

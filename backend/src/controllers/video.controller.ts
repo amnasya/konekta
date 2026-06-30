@@ -9,6 +9,22 @@ const submitSchema = z.object({
   video_url: z.string().url().max(500),
 });
 
+/**
+ * Calculate progress percentage (0–100).
+ * If both targets are 0 (no target set), progress = 100 (always met).
+ * Formula: 60% views weight + 40% likes weight.
+ */
+function calcProgress(
+  totalViews: number, totalLikes: number,
+  targetViews: number, targetLikes: number
+): number {
+  const noTarget = targetViews === 0 && targetLikes === 0;
+  if (noTarget) return 100;
+  const vPct = targetViews > 0 ? Math.min(totalViews / targetViews, 1) : 1;
+  const lPct = targetLikes > 0 ? Math.min(totalLikes / targetLikes, 1) : 1;
+  return Math.round((vPct * 0.6 + lPct * 0.4) * 100);
+}
+
 export const videoController = {
   /**
    * POST /offers/:id/videos
@@ -38,12 +54,14 @@ export const videoController = {
       }
       const app = appRows[0] as { id: number; views: number; likes: number; shares: number };
 
-      // Fetch TikTok stats via RapidAPI
-      let stats;
+      // Fetch TikTok stats via RapidAPI — non-blocking: store video even if fetch fails
+      let stats = { views: 0, likes: 0, shares: 0, title: '', author: '' };
+      let statsFetched = true;
       try {
         stats = await fetchTikTokStats(video_url);
       } catch (e: any) {
-        throw new ApiError(422, e?.message ?? 'Failed to fetch TikTok stats');
+        statsFetched = false;
+        // Continue — video saved with 0 stats, can be refreshed later
       }
 
       // Store submitted video
@@ -78,9 +96,10 @@ export const videoController = {
       const offer = offerRows[0] as { target_views: number; target_likes: number; target_shares: number };
 
       // Calculate progress (weighted: 60% views, 40% likes)
-      const viewProgress  = offer.target_views  > 0 ? Math.min(agg.total_views  / offer.target_views,  1) : 0;
-      const likeProgress  = offer.target_likes  > 0 ? Math.min(agg.total_likes  / offer.target_likes,  1) : 0;
-      const progress = Math.round((viewProgress * 0.6 + likeProgress * 0.4) * 100);
+      const progress = calcProgress(
+        Number(agg.total_views), Number(agg.total_likes),
+        offer.target_views, offer.target_likes
+      );
 
       // Update applicant row
       await pool.query(
@@ -147,9 +166,7 @@ export const videoController = {
       const totalLikes  = Number(agg.total_likes);
       const totalShares = Number(agg.total_shares);
 
-      const vPct = offerRow.target_views > 0 ? Math.min(totalViews / offerRow.target_views, 1) : 0;
-      const lPct = offerRow.target_likes > 0 ? Math.min(totalLikes / offerRow.target_likes, 1) : 0;
-      const progress = Math.round((vPct * 0.6 + lPct * 0.4) * 100);
+      const progress = calcProgress(totalViews, totalLikes, offerRow.target_views, offerRow.target_likes);
 
       await pool.query(
         `UPDATE campaign_applicants SET views = ?, likes = ?, shares = ?, progress = ?
@@ -220,9 +237,7 @@ export const videoController = {
       const totalShares = Number(agg.total_shares);
 
       // Recalculate progress from live aggregated data
-      const vPct = offerRow.target_views > 0 ? Math.min(totalViews / offerRow.target_views, 1) : 0;
-      const lPct = offerRow.target_likes > 0 ? Math.min(totalLikes / offerRow.target_likes, 1) : 0;
-      const progress = Math.round((vPct * 0.6 + lPct * 0.4) * 100);
+      const progress = calcProgress(totalViews, totalLikes, offerRow.target_views, offerRow.target_likes);
 
       // Sync back to campaign_applicants if the stored values are stale
       const storedViews = Number(app.views ?? 0);
@@ -365,9 +380,7 @@ export const videoController = {
       const totalShares = Number(agg.total_shares);
 
       // Recalculate progress
-      const vPct = offerTarget.target_views > 0 ? Math.min(totalViews / offerTarget.target_views, 1) : 0;
-      const lPct = offerTarget.target_likes > 0 ? Math.min(totalLikes / offerTarget.target_likes, 1) : 0;
-      const progress = Math.round((vPct * 0.6 + lPct * 0.4) * 100);
+      const progress = calcProgress(totalViews, totalLikes, offerTarget.target_views, offerTarget.target_likes);
 
       // Sync back to campaign_applicants if stale
       await pool.query(
@@ -442,9 +455,10 @@ export const videoController = {
         [offerId]
       );
       const offer = offerRows[0] as { target_views: number; target_likes: number };
-      const vPct = offer.target_views > 0 ? Math.min(agg.total_views / offer.target_views, 1) : 0;
-      const lPct = offer.target_likes > 0 ? Math.min(agg.total_likes / offer.target_likes, 1) : 0;
-      const progress = Math.round((vPct * 0.6 + lPct * 0.4) * 100);
+      const progress = calcProgress(
+        Number(agg.total_views), Number(agg.total_likes),
+        offer.target_views, offer.target_likes
+      );
 
       await pool.query(
         `UPDATE campaign_applicants SET views = ?, likes = ?, shares = ?, progress = ?
