@@ -1,197 +1,257 @@
-# Konekta — Setup & Run Guide
+# Konekta — Setup Guide
 
-Panduan lengkap untuk menjalankan project **Konekta** (Backend Express + TypeScript + MySQL, Frontend Flutter) dari nol di lokal.
-
----
-
-## 1. Prasyarat
-
-Pastikan tools berikut sudah ter-install di mesin kamu:
-
-| Tool        | Versi Minimum | Keterangan                                      |
-| ----------- | ------------- | ----------------------------------------------- |
-| Node.js     | 18.x atau 20.x | Runtime backend (disarankan LTS)               |
-| npm         | 9.x ke atas    | Package manager backend (ikut Node.js)         |
-| MySQL       | 8.x            | Database server                                |
-| Flutter SDK | 3.10.x ke atas | Framework frontend                             |
-| Dart        | 3.x            | Bahasa pemrograman Flutter (ikut Flutter SDK)  |
-| Git         | terbaru        | Version control (opsional)                     |
-
-Cek versi:
-```bash
-node -v
-npm -v
-mysql --version
-flutter --version
-```
+Panduan lengkap untuk menjalankan aplikasi Konekta secara lokal.
 
 ---
 
-## 2. Clone & Masuk Direktori
+## Prerequisites
+
+Pastikan semua tools berikut sudah terinstall:
+
+| Tool | Versi Minimum | Download |
+|------|--------------|---------|
+| Node.js | 18+ | https://nodejs.org |
+| npm | 9+ | (bundled dengan Node.js) |
+| MySQL | 8.0+ | https://dev.mysql.com/downloads |
+| Flutter | 3.10+ (Dart SDK ^3.10.8) | https://flutter.dev/docs/get-started/install |
+| Git | any | https://git-scm.com |
+
+---
+
+## 1. Clone Repository
 
 ```bash
-git clone <repo-url> "konekta"
-cd "konekta"
-```
-
-Struktur utama project:
-```
-konekta/
-├── backend/        # Express + TypeScript API
-├── database/       # Skema SQL
-├── konekta/        # Flutter app
-├── ARCHITECTURE.md
-├── design-patterns.md
-└── prd.md
+git clone <repo-url>
+cd konekta-project
 ```
 
 ---
 
-## 3. Setup Database (MySQL)
+## 2. Setup Database
 
-### 3.1 Jalankan MySQL
-Pastikan service MySQL sudah berjalan.
+### 2.1 Buat Database
 
-### 3.2 Buat Database & Import Schema
-```bash
-mysql -u root -p < database/schema.sql
-```
-Atau masuk ke MySQL lalu jalankan:
+Buka MySQL client (MySQL Workbench, DBeaver, atau terminal):
+
 ```sql
-SOURCE database/schema.sql;
+CREATE DATABASE konekta CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-> ℹ️ Sesuaikan user/password di `backend/.env` (langkah 4.2).
+### 2.2 Import Schema & Seed Data
+
+```bash
+mysql -u root -p konekta < database/schema.sql
+```
+
+> Perintah ini akan membuat semua tabel dan mengisi data awal (seed).
+
+### 2.3 Verifikasi
+
+```sql
+USE konekta;
+SHOW TABLES;
+```
+
+Pastikan tabel berikut ada:
+- `users`, `influencer_profiles`, `brand_profiles`
+- `offers`, `campaign_applicants`, `submitted_videos`
+- `video_daily_stats`, `earnings`, `notifications`
+- `conversations`, `messages`, `social_media_accounts`
 
 ---
 
-## 4. Setup Backend (Express + TypeScript)
+## 3. Setup Backend
 
-### 4.1 Install Dependencies
+### 3.1 Install Dependencies
+
 ```bash
 cd backend
 npm install
 ```
 
-### 4.2 Konfigurasi Environment
-Buat file `backend/.env`:
+### 3.2 Konfigurasi Environment
+
+Buat file `.env` di folder `backend/`:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Atau buat manual dengan isi berikut:
+
 ```env
-PORT=3000
+# Server
+PORT=4000
+
+# Database
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=your_mysql_password
 DB_NAME=konekta
-JWT_SECRET=replace-with-a-long-random-string
-GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
+
+# JWT
+JWT_SECRET=your-secret-key-ganti-ini
+TOKEN_EXPIRY_HOURS=24
+
+# RapidAPI TikTok (untuk fetch video stats)
+RAPIDAPI_KEY=your_rapidapi_key
+RAPIDAPI_TIKTOK_HOST=tiktok-api23.p.rapidapi.com
+
+# Google OAuth (opsional)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:4000/auth/google/callback
 ```
 
-### 4.3 Build TypeScript
-```bash
-npm run build
-```
+> **Cara dapat RAPIDAPI_KEY:**
+> 1. Daftar di https://rapidapi.com
+> 2. Search "TikTok API" → Subscribe ke plan Free
+> 3. Copy `X-RapidAPI-Key` dari halaman endpoint
 
-### 4.4 Jalankan Backend
-Mode development (auto-reload):
-```bash
-npm run dev
-```
-Mode production (setelah build):
-```bash
-npm start
-```
+### 3.3 Jalankan Backend
 
-Backend akan berjalan di `http://localhost:3000`.
-
-Cek kesehatan API:
-```bash
-curl http://localhost:3000/
-# atau endpoint health-check yang tersedia
-```
-
----
-
-## 5. Setup Frontend (Flutter)
-
-### 5.1 Install Dependencies
-```bash
-cd ../konekta
-flutter pub get
-```
-
-### 5.2 Konfigurasi Endpoint API
-Cari file konfigurasi base URL di Flutter (umumnya di `lib/utils/` atau `lib/config/`). Contoh:
-```dart
-const String kBaseUrl = 'http://localhost:3000';
-```
-> ⚠️ Untuk Android emulator, ganti `localhost` menjadi `10.0.2.2`. Untuk device fisik, gunakan IP LAN (mis. `http://192.168.1.10:3000`).
-
-### 5.3 Jalankan Aplikasi
-Pastikan ada device/emulator aktif (`flutter devices`), lalu:
-```bash
-flutter run
-```
-
-Platform tertentu:
-```bash
-flutter run -d chrome        # Web
-flutter run -d android       # Android emulator/device
-flutter run -d windows       # Windows desktop
-```
-
-### 5.4 (Opsional) Build APK / Web
-```bash
-flutter build apk --release
-flutter build web --release
-```
-
----
-
-## 6. Menjalankan Keduanya Sekaligus
-
-Buka 2 terminal:
-
-**Terminal 1 — Backend**
+**Development (auto-reload):**
 ```bash
 cd backend
 npm run dev
 ```
 
-**Terminal 2 — Flutter**
+**Production (build dulu):**
+```bash
+cd backend
+npm run build
+npm start
+```
+
+Backend berjalan di: `http://localhost:4000`
+
+### 3.4 Verifikasi Backend
+
+Buka browser atau Postman:
+```
+GET http://localhost:4000/health
+```
+
+Response yang diharapkan:
+```json
+{ "success": true, "message": "Konekta API is running" }
+```
+
+---
+
+## 4. Setup Flutter App
+
+### 4.1 Install Flutter Dependencies
+
+```bash
+cd konekta
+flutter pub get
+```
+
+### 4.2 Konfigurasi API URL
+
+Buka file `konekta/lib/core/api_client.dart` dan pastikan `baseUrl` mengarah ke backend:
+
+- **Emulator Android:** `http://10.0.2.2:4000`
+- **Emulator iOS / Simulator:** `http://127.0.0.1:4000`
+- **Device fisik:** `http://<IP-komputer-kamu>:4000`
+
+### 4.3 Jalankan Flutter App
+
 ```bash
 cd konekta
 flutter run
 ```
 
----
-
-## 7. Script Penting Backend (Referensi)
-
-| Perintah          | Fungsi                                              |
-| ----------------- | --------------------------------------------------- |
-| `npm run dev`     | Jalankan server dengan auto-reload (ts-node-dev)    |
-| `npm run build`   | Compile TypeScript ke `dist/`                       |
-| `npm start`       | Jalankan server production (butuh `build` dulu)     |
-| `npm run db:reset`| Reset database dari `database/schema.sql`           |
+Pilih device yang tersedia (emulator atau device fisik).
 
 ---
 
-## 8. Troubleshooting
+## 5. Akun Test
 
-- **Error `ECONNREFUSED 127.0.0.1:3306`** → MySQL belum jalan atau port salah. Cek service & `DB_PORT` di `.env`.
-- **Error `Access denied for user 'root'`** → Password `DB_PASSWORD` di `.env` tidak cocok.
-- **`tsc: not found`** → Jalankan `npm install` di folder `backend`.
-- **Flutter tidak bisa hit backend di emulator Android** → Gunakan `http://10.0.2.2:3000` sebagai base URL.
-- **`flutter pub get` gagal** → Pastikan Flutter SDK versi 3.10+ dan koneksi internet aktif.
-- **Google Sign-In gagal** → Pastikan `GOOGLE_CLIENT_ID` di backend `.env` sesuai dengan yang ada di konfigurasi Flutter.
+Setelah import `schema.sql`, akun berikut tersedia:
+
+| Role | Email | Password |
+|------|-------|----------|
+| Influencer | ava@konekta_mobile_app.test | password123 |
+| Influencer | leo@konekta_mobile_app.test | password123 |
+| Influencer | maya@konekta_mobile_app.test | password123 |
+| Brand | brand1@konekta_mobile_app.test | password123 |
+| Brand | brand2@konekta_mobile_app.test | password123 |
+| Brand | brand3@konekta_mobile_app.test | password123 |
 
 ---
 
-## 9. Ringkasan Alur
+## 6. Struktur Folder
 
-1. Install prasyarat (Node, MySQL, Flutter).
-2. Import `database/schema.sql` ke MySQL.
-3. `cd backend` → `npm install` → buat `.env` → `npm run dev`.
-4. `cd konekta` → `flutter pub get` → atur base URL → `flutter run`.
+```
+konekta-project/
+├── backend/              # Express.js + TypeScript API
+│   ├── src/
+│   │   ├── controllers/  # HTTP handlers
+│   │   ├── services/     # Business logic
+│   │   ├── routes/       # Route definitions
+│   │   ├── models/       # Data models
+│   │   └── config/       # DB & env config
+│   ├── .env              # Environment variables (jangan di-commit)
+│   └── package.json
+│
+├── konekta/              # Flutter mobile app
+│   ├── lib/
+│   │   ├── auth/         # Login, register, role select
+│   │   ├── brand/        # Brand dashboard, explore, analytics
+│   │   ├── influencer/   # Influencer dashboard, explore, analytics
+│   │   ├── campaign/     # Campaign room screen
+│   │   ├── data/         # Models & repositories
+│   │   └── core/         # Theme, API client, utilities
+│   └── pubspec.yaml
+│
+└── database/
+    ├── schema.sql         # Struktur tabel + seed data
+    └── seed.sql           # Data tambahan (opsional)
+```
 
-Selesai 🎉 — project Konekta siap dijalankan.
+---
+
+## 7. Troubleshooting
+
+### Backend tidak bisa connect ke DB
+- Pastikan MySQL berjalan: `sudo service mysql start` (Linux) atau lewat MySQL Workbench
+- Cek `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` di `.env`
+- Pastikan database `konekta` sudah dibuat
+
+### Flutter tidak bisa connect ke backend
+- Pastikan backend berjalan di port 4000
+- Untuk emulator Android, gunakan `10.0.2.2` bukan `localhost`
+- Untuk device fisik, pastikan HP dan komputer di jaringan WiFi yang sama, gunakan IP komputer
+
+### Error 500 di analytics
+- Pastikan tabel `video_daily_stats` sudah ada di DB
+- Jalankan ulang `schema.sql` atau buat manual tabelnya
+
+### TikTok API error 429 (rate limit)
+- API key sudah mencapai limit harian
+- Ganti dengan API key baru dari RapidAPI atau tunggu reset limit
+- Video tetap tersimpan, klik tombol refresh (↺) di video card setelah limit reset
+
+### TikTok API error 422
+- Pastikan URL video TikTok lengkap, format: `https://www.tiktok.com/@username/video/1234567890`
+- URL harus mengandung `/video/` dan numeric ID
+
+---
+
+## 8. Environment Variables Reference
+
+| Variable | Keterangan | Contoh |
+|----------|-----------|--------|
+| `PORT` | Port backend | `4000` |
+| `DB_HOST` | Host MySQL | `127.0.0.1` |
+| `DB_PORT` | Port MySQL | `3306` |
+| `DB_USER` | Username MySQL | `root` |
+| `DB_PASSWORD` | Password MySQL | `mypassword` |
+| `DB_NAME` | Nama database | `konekta` |
+| `JWT_SECRET` | Secret untuk JWT token | string acak panjang |
+| `TOKEN_EXPIRY_HOURS` | Durasi token (jam) | `24` |
+| `RAPIDAPI_KEY` | API key dari RapidAPI | dari dashboard RapidAPI |
+| `RAPIDAPI_TIKTOK_HOST` | Host TikTok API | `tiktok-api23.p.rapidapi.com` |
